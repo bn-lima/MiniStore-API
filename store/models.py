@@ -1,6 +1,6 @@
 from django.db import models
 from django.core.validators import RegexValidator
-
+from django.contrib.auth.models import User
 class DiscountCupom(models.Model):
 
     cupom = models.CharField(max_length=10, blank=False)
@@ -55,7 +55,7 @@ class Product(models.Model):
         
 numeric_validator = RegexValidator(r'^\d{11}$', 'Enter exactly 11 numbers')
 
-class Client(models.Model):
+class Client(models.Model): #======================================================== Definir essa classe como usuário padrão
     name = models.CharField(max_length=150, blank=False)
     password = models.CharField(max_length=100)
     email = models.EmailField(blank=False)
@@ -63,4 +63,19 @@ class Client(models.Model):
     location = models.CharField(max_length=200, blank=False)
     phone = models.CharField(max_length=11, validators=[numeric_validator], blank=False)
 
-#=========== Criar um modelo personalizado de carrinho ===========
+class Cart(models.Model):
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateField(auto_now_add=True)
+
+    def total(self):
+        return sum(item.subtotal() for item in self.items.all())
+
+class CartItem(models.Model):
+
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.IntegerField(default=1)
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name="items")
+
+    def subtotal(self):
+        return self.product.price * self.quantity
