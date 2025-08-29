@@ -1,6 +1,7 @@
 from django.db import models
 from django.core.validators import RegexValidator
 from django.contrib.auth.models import User
+from django.contrib.auth.models import AbstractUser
 class DiscountCupom(models.Model):
 
     cupom = models.CharField(max_length=10, blank=False)
@@ -53,19 +54,19 @@ class Product(models.Model):
         except DiscountCupom.DoesNotExist:
             return self.price
         
+    def __str__(self):
+        return f"{self.name} - {self.price}"
+        
 numeric_validator = RegexValidator(r'^\d{11}$', 'Enter exactly 11 numbers')
 
-class Client(models.Model): #======================================================== Definir essa classe como usuário padrão
-    name = models.CharField(max_length=150, blank=False)
-    password = models.CharField(max_length=100)
-    email = models.EmailField(blank=False)
+class Client(AbstractUser):
     cpf = models.CharField(max_length=11, validators=[numeric_validator], blank=False)
     location = models.CharField(max_length=200, blank=False)
     phone = models.CharField(max_length=11, validators=[numeric_validator], blank=False)
 
 class Cart(models.Model):
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(Client, on_delete=models.CASCADE)
     created_at = models.DateField(auto_now_add=True)
 
     def total(self):
