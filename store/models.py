@@ -71,6 +71,9 @@ class Cart(models.Model):
 
     def total(self):
         return sum(item.subtotal() for item in self.items.all())
+    
+    def __str__(self):
+        return f"{self.user} - {self.created_at}"
 
 class CartItem(models.Model):
 
@@ -80,3 +83,6 @@ class CartItem(models.Model):
 
     def subtotal(self):
         return self.product.price * self.quantity
+    
+    def __str__(self):
+        return f"{self.product} - {self.quantity}"
