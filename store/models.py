@@ -2,6 +2,9 @@ from django.db import models
 from django.core.validators import RegexValidator
 from django.contrib.auth.models import User
 from django.contrib.auth.models import AbstractUser
+from django.utils.text import slugify
+
+
 class DiscountCupom(models.Model):
 
     cupom = models.CharField(max_length=10, blank=False)
@@ -27,6 +30,8 @@ class DiscountCupom(models.Model):
     def __str__(self):
         return f"{self.cupom} - {self.discount_percent}%"    
     
+
+
 class Product(models.Model):
 
     CATEGORY_CHOICES = [
@@ -43,6 +48,7 @@ class Product(models.Model):
     price = models.DecimalField(null=False,blank=False,decimal_places=2,max_digits=8)
     description = models.CharField(max_length=1000, blank=False)
     stock = models.IntegerField(blank=False,null=False)
+    slug = models.SlugField(max_length=255, unique=True, blank=True)
 
     def calculate_discount(self, cupom_code):
         try:
@@ -54,10 +60,19 @@ class Product(models.Model):
         except DiscountCupom.DoesNotExist:
             return self.price
         
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.name} - {self.price}"
         
+
+
 numeric_validator = RegexValidator(r'^\d{11}$', 'Enter exactly 11 numbers')
+
+
 
 class Client(AbstractUser):
     cpf = models.CharField(max_length=11, validators=[numeric_validator], blank=False)
@@ -74,6 +89,8 @@ class Cart(models.Model):
     
     def __str__(self):
         return f"{self.user} - {self.created_at}"
+
+
 
 class CartItem(models.Model):
 
