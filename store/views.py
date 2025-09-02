@@ -1,11 +1,16 @@
 from django.shortcuts import render, get_object_or_404
-from rest_framework.generics import ListAPIView, RetrieveAPIView
-from .serializers import ProductSerializer, CartSerializer
-from .models import Product, Cart
+from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView, GenericAPIView
+from .serializers import ProductSerializer, CartSerializer, ClientSerializer
+from .models import Product, Cart, Client
 from rest_framework import viewsets
-from rest_framework import permissions
+from rest_framework import permissions, status
 from .pagination import ProductStorePagination
+from rest_framework.authtoken.models import Token
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from django.contrib.auth import authenticate
 
+#==STORE==
 
 class ProductsStoreView(ListAPIView):
     pagination_class = ProductStorePagination
@@ -22,8 +27,18 @@ class CartViewSet(viewsets.ModelViewSet):
         queryset = Cart.objects.filter(user=self.request.user)
         return queryset
     
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+    
 class ProductDetail(RetrieveAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = ProductSerializer
     queryset = Product.objects.all()
     lookup_field = 'slug'
+
+#==AUTHENTICATION==
+
+class RegisterClient(CreateAPIView):
+    permission_classes = [permissions.AllowAny]
+    serializer_class = ClientSerializer
+    queryset = Client.objects.all() 

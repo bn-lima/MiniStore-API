@@ -79,6 +79,7 @@ class Client(AbstractUser):
     location = models.CharField(max_length=200, blank=False)
     phone = models.CharField(max_length=11, validators=[numeric_validator], blank=False)
 
+
 class Cart(models.Model):
 
     user = models.ForeignKey(Client, on_delete=models.CASCADE)
