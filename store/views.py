@@ -41,4 +41,13 @@ class ProductDetail(RetrieveAPIView):
 class RegisterClient(CreateAPIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = ClientSerializer
-    queryset = Client.objects.all() 
+    queryset = Client.objects.all()
+
+class LogoutClient(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, *args, **kwargs):
+        Token.objects.filter(user=request.user).delete()
+        return Response({'detail': 'Logout was successful'}, status=status.HTTP_204_NO_CONTENT)
+    
+
