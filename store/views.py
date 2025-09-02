@@ -51,3 +51,15 @@ class LogoutClient(APIView):
         return Response({'detail': 'Logout was successful'}, status=status.HTTP_204_NO_CONTENT)
     
 
+class LoginClient(APIView):
+    permission_classes = [permissions.AllowAny]
+    def post(self, request, *args, **kwargs):
+
+        username = request.data.get('username')
+        password = request.data.get('password')
+
+        user = authenticate(username=username, password=password)
+        if user is not None:
+            token, _ = Token.objects.get_or_create(user=user)
+            return Response({'Token': token.key})
+        return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)

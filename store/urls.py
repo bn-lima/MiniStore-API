@@ -17,5 +17,6 @@ urlpatterns = [
     path('user/', include([
         path('register/', RegisterClient.as_view(), name='register'),
         path('logout/', LogoutClient.as_view(), name='logout'),
+        path('login/', LoginClient.as_view(), name='login'),
     ])),
 ]
