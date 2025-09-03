@@ -41,4 +41,13 @@ class ClientSerializer(serializers.ModelSerializer):
         user.save()
         token, _= Token.objects.get_or_create(user=user)
         return user
-    
+
+
+class AddToCartSerializer(serializers.Serializer):
+
+    product_quantity = serializers.IntegerField(default=1)
+
+    def validate_product_quantity(self, value):
+        if value < 1:
+            raise serializers.ValidationError('Quantity must be at least 1')
+        return value
