@@ -51,3 +51,12 @@ class AddToCartSerializer(serializers.Serializer):
         if value < 1:
             raise serializers.ValidationError('Quantity must be at least 1')
         return value
+    
+class DeleteCartItemSerializer(serializers.Serializer):
+
+    product_quantity = serializers.IntegerField(default=1)
+
+    def validate_product_quantity(self, value):
+        if value < 0:
+            raise serializers.ValidationError('Quantity must be at least 0')
+        return value

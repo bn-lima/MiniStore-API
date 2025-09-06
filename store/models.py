@@ -99,8 +99,11 @@ class CartItem(models.Model):
     quantity = models.IntegerField(default=1)
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name="items")
 
+    class Meta:
+        unique_together = ('cart', 'product')
+
     def subtotal(self):
         return self.product.price * self.quantity
-    
+
     def __str__(self):
         return f"{self.product} - {self.quantity}"
