@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Product, Cart, Client
+from .models import Product, Cart, Client, CartItem
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
 
@@ -8,12 +8,28 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = '__all__'
 
+class CartItemSerializer(serializers.ModelSerializer):
+    subtotal = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CartItem
+        fields = '__all__'
+        
+    def get_subtotal(self, obj):
+        return obj.subtotal()
+    
 class CartSerializer(serializers.ModelSerializer):
+    total = serializers.SerializerMethodField()
+    items = CartItemSerializer(many=True, read_only=True)
+    
     class Meta:
         model = Cart
         fields = '__all__'
         read_only_fields = ('user', 'created_at')
-        
+
+    def get_total(self, obj):
+        return obj.total()
+
 
 class ClientSerializer(serializers.ModelSerializer):
     confirm_password = serializers.CharField(max_length=200, write_only=True)
