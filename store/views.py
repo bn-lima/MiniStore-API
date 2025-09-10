@@ -59,15 +59,15 @@ class AddToCart(APIView):
 
         return Response({'detail': 'Product Added To Cart', 'cart_subtotal': cart_item.subtotal()}, status=status.HTTP_200_OK)
 
-class Continue_Payment(APIView):
+class Continue_Payment(APIView): 
     permission_classes = [permissions.IsAuthenticated]
-
+    
     def get(self, request, *args, **kwargs):
         cart, _ = Cart.objects.get_or_create(user=request.user)
 
         if not cart.items.exists():
             return Response({"error':'You don't have items in your cart"})
-        serializer = CartSerializer(cart)
+        serializer = CartSerializer(cart, context={'coupon_code': request.query_params.get('coupon_code')})
         return Response(serializer.data)
 
 class DeleteCartItem(APIView):
