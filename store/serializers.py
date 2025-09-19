@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Product, Cart, Client, CartItem, DiscountCupom
+from .models import Product, Cart, Client, CartItem, Order, DiscountCupom
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
 from. services import validate_coupon
@@ -20,6 +20,14 @@ class CartItemSerializer(serializers.ModelSerializer):
     def get_subtotal(self, obj):
         return obj.subtotal()
     
+class CouponCodeSerializer(serializers.ModelSerializer):
+    coupon_code = serializers.CharField(
+        max_length=10,
+        required=False,
+        allow_blank=True,
+        allow_null=True
+    )
+
 class CartSerializer(serializers.ModelSerializer):
     total = serializers.SerializerMethodField()
     items = CartItemSerializer(many=True, read_only=True)
@@ -97,3 +105,75 @@ class DeleteCartItemSerializer(serializers.Serializer):
         if value < 0:
             raise serializers.ValidationError('Quantity must be at least 0')
         return value
+    
+class OrderSerializer(serializers.ModelSerializer):
+    coupon_code = serializers.CharField(max_length=10, required=False)
+    total = serializers.SerializerMethodField()
+    message = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Order
+        fields = '__all__'
+        read_only_fields = ('user','cart','status','order_id','created_at','updated_at','discount_applied')
+
+    def validate_payment_method(self, value):
+        if not value:
+            raise serializers.ValidationError('You must provide a payment method')
+        if value not in ['pix','card','payment_slip']:
+            raise serializers.ValidationError('Invalid payment method')
+        return value
+    
+    def get_total(self, _):
+        coupon_code = self.context.get('coupon_code')
+        cart = self.context.get('cart')
+
+        if not coupon_code or coupon_code in ['None', 'null']:
+            return cart.total()
+
+        new_total, _ = validate_coupon(coupon_code, cart)
+        return new_total
+    
+    def get_message(self, _):
+        coupon_code = self.context.get('coupon_code')
+        cart = self.context.get('cart')
+
+        if not coupon_code or coupon_code in ['None', 'null']:
+            return None
+        
+        _, message = validate_coupon(coupon_code, cart)
+        return message
+    
+    def create(self, validated_data):
+        user = self.context['request'].user
+        cart = self.context.get('cart')
+        code = self.context.get('coupon_code')
+        validated_data.pop('coupon_code', None)
+
+        try:
+            discount = DiscountCupom.objects.get(cupom=code)
+        except DiscountCupom.DoesNotExist:
+            discount = None
+        
+        order = Order.objects.create(
+            user=user,
+            cart=cart,
+            discount_applied=discount,
+            **validated_data
+        )
+        
+        for item in cart.items.all():
+            if item.quantity > item.product.stock:
+                raise serializers.ValidationError(f"Not enough stock for {item.product.name}")
+            
+            product = item.product
+            product.stock -= item.quantity
+            if product.stock <= 0:
+                product.stock =0
+                product.active = False
+            product.save()
+
+        cart.finalized = True
+        cart.save()
+
+        return order
+#ADICIONAR ESSA LÓGICA DE ACTIVE DO PRODUTO E FINALIZED DO CART NAS DEMAIS VIEWS E SERIALIZERS

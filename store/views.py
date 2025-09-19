@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView, GenericAPIView, DestroyAPIView
-from .serializers import ProductSerializer, CartSerializer, ClientSerializer, AddToCartSerializer, DeleteCartItemSerializer
+from .serializers import ProductSerializer, CartSerializer, ClientSerializer, AddToCartSerializer, DeleteCartItemSerializer, OrderSerializer, CouponCodeSerializer
 from .models import Product, Cart, Client, CartItem
 from rest_framework import viewsets
 from rest_framework import permissions, status
@@ -20,7 +20,7 @@ class ProductsStoreView(ListAPIView):
     serializer_class = ProductSerializer    
     queryset = Product.objects.all()
 
-class CartViewSet(viewsets.ModelViewSet):
+class CartViewSet(viewsets.ModelViewSet): # --> alterar essa viewset para uma generic view
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = CartSerializer
     queryset = Cart.objects.all()
@@ -58,18 +58,7 @@ class AddToCart(APIView):
         cart_item.save()
 
         return Response({'detail': 'Product Added To Cart', 'cart_subtotal': cart_item.subtotal()}, status=status.HTTP_200_OK)
-
-class Continue_Payment(APIView): 
-    permission_classes = [permissions.IsAuthenticated]
     
-    def get(self, request, *args, **kwargs):
-        cart, _ = Cart.objects.get_or_create(user=request.user)
-
-        if not cart.items.exists():
-            return Response({"error':'You don't have items in your cart"})
-        serializer = CartSerializer(cart, context={'coupon_code': request.query_params.get('coupon_code')})
-        return Response(serializer.data)
-
 class DeleteCartItem(APIView):
     permission_classes =[permissions.IsAuthenticated]
 
@@ -91,7 +80,47 @@ class DeleteCartItem(APIView):
                 return Response({'detail': 'The product quantity has been updated in your cart', 'cart_subtotal': cart_item.subtotal()},status=status.HTTP_200_OK)
         
         return Response({"error": "The product doesn't exist in your cart"}, status=status.HTTP_404_NOT_FOUND)
+    
+#==PAYMENT==
 
+class Continue_Payment(APIView): #Mudar esse nome depois
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request, *args, **kwargs):
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+
+        query_serializer = CouponCodeSerializer(data=request.query_params)
+        query_serializer.is_valid(raise_exception=True)
+
+        coupon_code = query_serializer.validated_data.get('coupon_code')
+
+        if not cart.items.exists():
+            return Response({"error':'You don't have items in your cart"}, status=status.HTTP_404_NOT_FOUND)
+        serializer = CartSerializer(cart, context={'coupon_code': coupon_code})
+        return Response(serializer.data)
+    
+class CreateOrder(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+
+        cart, _ = Cart.objects.get_or_create(user=request.user, finalized=False)
+
+        if not cart.items.exists():
+            return Response({"error": "You don't have items in your cart"}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = OrderSerializer(
+            data=request.data,
+            context={
+                'request': request,
+                'coupon_code': request.data.get('coupon_code'),
+                'cart': cart
+            })
+        serializer.is_valid(raise_exception=True)
+
+        order = serializer.save()
+
+        return Response(OrderSerializer(order, context=serializer.context).data, status=status.HTTP_201_CREATED)
 
 #==AUTHENTICATION==
 

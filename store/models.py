@@ -3,7 +3,8 @@ from django.core.validators import RegexValidator
 from django.contrib.auth.models import User
 from django.contrib.auth.models import AbstractUser
 from django.utils.text import slugify
-
+from django.utils import timezone
+import uuid
 
 class DiscountCupom(models.Model):
 
@@ -48,11 +49,12 @@ class Product(models.Model):
     price = models.DecimalField(null=False,blank=False,decimal_places=2,max_digits=8)
     description = models.CharField(max_length=1000, blank=False)
     stock = models.IntegerField(blank=False,null=False)
+    active = models.BooleanField(default=False)
+    
     slug = models.SlugField(max_length=255, unique=True, blank=True)
 
     def calculate_discount(self, cupom_code):
         try:
-
             discount = DiscountCupom.objects.get(cupom = cupom_code)
             new_price = discount.apply_discount(self.price)
             return new_price            
@@ -84,6 +86,7 @@ class Cart(models.Model):
 
     user = models.ForeignKey(Client, on_delete=models.CASCADE)
     created_at = models.DateField(auto_now_add=True)
+    finalized = models.BooleanField(default=False)
 
     def total(self):
         return sum(item.subtotal() for item in self.items.all())
@@ -94,7 +97,6 @@ class Cart(models.Model):
 
 
 class CartItem(models.Model):
-
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.IntegerField(default=1)
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name="items")
@@ -107,3 +109,30 @@ class CartItem(models.Model):
 
     def __str__(self):
         return f"{self.product} - {self.quantity}"
+    
+class Order(models.Model):
+
+    STATUS_CHOICES = [
+        
+        ("pending","Pending"),
+        ("cancelled", "Cancelled"),
+        ("paid", "Paid"),
+    ]
+
+    PAYMENT_METHOD__CHOICES = [
+        
+        ("card","Card"),
+        ("pix", "Pix"),
+        ("payment_slip", "Payment Slip"),
+    ]
+
+
+    user = models.ForeignKey(Client, on_delete=models.CASCADE)
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE)
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='pending')
+    order_id = models.UUIDField(blank=False, default=uuid.uuid4, editable=False, unique=True)
+    created_at = models.DateTimeField(blank=False, default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+    payment_method = models.CharField(blank=False, max_length=20, choices=PAYMENT_METHOD__CHOICES)
+    discount_applied = models.ForeignKey(DiscountCupom, on_delete=models.SET_NULL, null=True, blank=True)
+
