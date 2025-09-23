@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.models import AbstractUser
 from django.utils.text import slugify
 from django.utils import timezone
+from django.db.models import Sum
 import uuid
 
 class DiscountCupom(models.Model):
@@ -90,6 +91,13 @@ class Cart(models.Model):
 
     def total(self):
         return sum(item.subtotal() for item in self.items.all())
+    
+    def total_items(self):
+        return self.items.aggregate(total=Sum('quantity')) ['total'] or 0 
+    
+    @classmethod
+    def get_cart(cls, user):
+        return cls.objects.get_or_create(user=user, finalized=False)
     
     def __str__(self):
         return f"{self.user} - {self.created_at}"

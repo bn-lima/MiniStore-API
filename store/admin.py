@@ -8,25 +8,29 @@ class DiscountCupomAdmin(admin.ModelAdmin):
 
 @admin.register(Client)
 class ClientAdmin(admin.ModelAdmin):
-    list_display = ('username','email','cpf','phone')
+    list_display = ('username','email','cpf','phone',)
     search_fields = ('username','cpf','phone','email')
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('name','category','price','stock')
-    search_fields = ('name','category','price','stock')
+    list_display = ('name','category','price','stock','active')
+    search_fields = ('name','category','price','stock','active')
 
-class CartItemInline(admin.TabularInline):
+class CartItemInline(admin.TabularInline): 
         model = CartItem
         extra = 1
         readonly_fields = ('subtotal',)
 
 @admin.register(Cart)
-class CartAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'created_at', 'total','finalized')
+class CartAdmin(admin.ModelAdmin): 
+    list_display = ('id', 'user', 'created_at', 'total','finalized','show_total_items')
     search_fields = ('user__username', 'user__email','finalized')
     inlines = [CartItemInline]
     readonly_fields = ('total',)
+
+    def show_total_items(self, obj):
+         return obj.total_items()
+    show_total_items.short_description = 'total_items'
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):

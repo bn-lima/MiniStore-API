@@ -20,7 +20,7 @@ class CartItemSerializer(serializers.ModelSerializer):
     def get_subtotal(self, obj):
         return obj.subtotal()
     
-class CouponCodeSerializer(serializers.ModelSerializer):
+class CouponCodeSerializer(serializers.Serializer):
     coupon_code = serializers.CharField(
         max_length=10,
         required=False,
@@ -28,11 +28,18 @@ class CouponCodeSerializer(serializers.ModelSerializer):
         allow_null=True
     )
 
+    def validate_coupon_code(self, value):
+        if value:
+            if not DiscountCupom.objects.filter(cupom=value, active=True).exists():
+                raise serializers.ValidationError('Invalid or inactive coupon')
+        return value
+
 class CartSerializer(serializers.ModelSerializer):
     total = serializers.SerializerMethodField()
     items = CartItemSerializer(many=True, read_only=True)
     message = serializers.SerializerMethodField()
     coupon_code = serializers.SerializerMethodField()
+    total_items = serializers.SerializerMethodField()
 
     class Meta:
         model = Cart
@@ -60,12 +67,15 @@ class CartSerializer(serializers.ModelSerializer):
     def get_coupon_code(self, obj):
         return self.context.get('coupon_code')
     
+    def get_total_items(self, obj):
+        return obj.total_items()
+    
 class ClientSerializer(serializers.ModelSerializer):
     confirm_password = serializers.CharField(max_length=200, write_only=True)
     
     class Meta:
         model = Client
-        fields = ['id', 'username', 'password', 'confirm_password', 'cpf', 'location', 'phone']
+        fields = ['id', 'username', 'password', 'confirm_password', 'cpf', 'location', 'phone', 'email']
         extra_kwargs = {
             'password': {'write_only': True}
         }
@@ -88,22 +98,12 @@ class ClientSerializer(serializers.ModelSerializer):
         return user
 
 
-class AddToCartSerializer(serializers.Serializer):
-
+class CartItemQuantitySerializer(serializers.Serializer):
     product_quantity = serializers.IntegerField(default=1)
 
     def validate_product_quantity(self, value):
         if value < 1:
             raise serializers.ValidationError('Quantity must be at least 1')
-        return value
-    
-class DeleteCartItemSerializer(serializers.Serializer):
-
-    product_quantity = serializers.IntegerField(default=1)
-
-    def validate_product_quantity(self, value):
-        if value < 0:
-            raise serializers.ValidationError('Quantity must be at least 0')
         return value
     
 class OrderSerializer(serializers.ModelSerializer):
