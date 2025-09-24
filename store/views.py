@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView, GenericAPIView, DestroyAPIView
-from .serializers import ProductSerializer, CartSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer
-from .models import Product, Cart, Client, CartItem
+from .serializers import ProductSerializer, CartSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer
+from .models import Product, Cart, Client, CartItem, Order
 from rest_framework import viewsets
 from rest_framework import permissions, status
 from .pagination import ProductStorePagination
@@ -84,7 +84,7 @@ class DeleteCartItem(APIView):
     
 #==PAYMENT==
 
-class Continue_Payment(APIView): #Mudar esse nome depois
+class Continue_Payment(APIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request, *args, **kwargs):
@@ -100,6 +100,8 @@ class Continue_Payment(APIView): #Mudar esse nome depois
         serializer = CartSerializer(cart, context={'coupon_code': coupon_code})
         return Response(serializer.data)
     
+#==ORDER==
+
 class CreateOrder(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -123,6 +125,18 @@ class CreateOrder(APIView):
 
         return Response(OrderSerializer(order, context=serializer.context).data, status=status.HTTP_201_CREATED)
 
+class UpdateOrderStatus(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def patch(self, request, pk, *args, **kwargs):
+        order = get_object_or_404(Order, pk=pk)
+
+        serializer = UpdateStatusSerializer(data=request.data, context={'order': order})
+        serializer.is_valid(raise_exception=True)
+
+        serializer.save()
+        return Response({'status': order.status, 'detail': f'The order status was changed for {order.status}'})
+    
 #==AUTHENTICATION==
 
 class RegisterClient(CreateAPIView):

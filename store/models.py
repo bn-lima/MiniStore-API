@@ -125,6 +125,8 @@ class Order(models.Model):
         ("pending","Pending"),
         ("cancelled", "Cancelled"),
         ("paid", "Paid"),
+        ("shipped","Shipped"),
+        ("delivered","Delivered")
     ]
 
     PAYMENT_METHOD__CHOICES = [
@@ -143,4 +145,3 @@ class Order(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     payment_method = models.CharField(blank=False, max_length=20, choices=PAYMENT_METHOD__CHOICES)
     discount_applied = models.ForeignKey(DiscountCupom, on_delete=models.SET_NULL, null=True, blank=True)
-

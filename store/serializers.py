@@ -176,4 +176,12 @@ class OrderSerializer(serializers.ModelSerializer):
         cart.save()
 
         return order
-#ADICIONAR ESSA LÓGICA DE ACTIVE DO PRODUTO E FINALIZED DO CART NAS DEMAIS VIEWS E SERIALIZERS
+
+class UpdateStatusSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=Order.STATUS_CHOICES)
+    
+    def save(self):
+        order = self.context.get('order')
+        order.status = self.validated_data.get('status')
+        order.save()
+        return order
