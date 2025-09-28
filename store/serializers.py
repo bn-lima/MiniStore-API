@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import Product, Cart, Client, CartItem, Order, DiscountCupom
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
-from. services import validate_coupon
+from. services import validate_coupon, calculate_total_price
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -106,15 +106,14 @@ class CartItemQuantitySerializer(serializers.Serializer):
             raise serializers.ValidationError('Quantity must be at least 1')
         return value
     
-class OrderSerializer(serializers.ModelSerializer):
-    coupon_code = serializers.CharField(max_length=10, required=False)
-    total = serializers.SerializerMethodField()
+class OrderSerializer(serializers.ModelSerializer): #TESTAR ISSO AMANHA =============================================================================================================================================================================================================================================================================================================================================
+    coupon_code = serializers.CharField(max_length=10, required=False) #AJUSTAR ESSA VIEW PRO NOVO CAMPO DO MODELO-===================================================================================================================================================================================================================================================================
     message = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
         fields = '__all__'
-        read_only_fields = ('user','cart','status','order_id','created_at','updated_at','discount_applied')
+        read_only_fields = ('user','cart','status','order_id','created_at','updated_at','discount_applied','total_price')
 
     def validate_payment_method(self, value):
         if not value:
@@ -122,16 +121,6 @@ class OrderSerializer(serializers.ModelSerializer):
         if value not in ['pix','card','payment_slip']:
             raise serializers.ValidationError('Invalid payment method')
         return value
-    
-    def get_total(self, _):
-        coupon_code = self.context.get('coupon_code')
-        cart = self.context.get('cart')
-
-        if not coupon_code or coupon_code in ['None', 'null']:
-            return cart.total()
-
-        new_total, _ = validate_coupon(coupon_code, cart)
-        return new_total
     
     def get_message(self, _):
         coupon_code = self.context.get('coupon_code')
@@ -143,21 +132,24 @@ class OrderSerializer(serializers.ModelSerializer):
         _, message = validate_coupon(coupon_code, cart)
         return message
     
-    def create(self, validated_data):
+    def create(self, validated_data): #TESTAR ISSO AMANHA RODA NO POSTMAN E ORA PRA FUNCIONAR =============================================================================================================================================================================================================================================================================================================================================
         user = self.context['request'].user
         cart = self.context.get('cart')
         code = self.context.get('coupon_code')
         validated_data.pop('coupon_code', None)
-
+        
         try:
             discount = DiscountCupom.objects.get(cupom=code)
         except DiscountCupom.DoesNotExist:
             discount = None
+
+        total_price, discount = calculate_total_price(code, cart, discount)
         
         order = Order.objects.create(
             user=user,
             cart=cart,
             discount_applied=discount,
+            total_price=total_price,
             **validated_data
         )
         
@@ -176,6 +168,28 @@ class OrderSerializer(serializers.ModelSerializer):
         cart.save()
 
         return order
+    
+class UserOrdersListSerializer(serializers.ModelSerializer):
+    cart_id = serializers.SerializerMethodField()
+    coupon_code = serializers.SerializerMethodField()
+    discount_value = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Order
+        fields = ["order_id", "status", "total_price", "created_at", "updated_at", "cart_id", "coupon_code", "discount_value"]
+
+    def get_cart_id(self, obj):
+        return obj.cart.pk
+    
+    def get_coupon_code(self, obj):
+        if obj.discount_applied:
+            return obj.discount_applied.cupom
+        return None
+    
+    def get_discount_value(self, obj):
+        if obj.discount_applied:
+            return f"{obj.discount_applied.discount_percent} %"
+        return None
 
 class UpdateStatusSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=Order.STATUS_CHOICES)

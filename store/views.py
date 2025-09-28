@@ -1,10 +1,9 @@
 from django.shortcuts import render, get_object_or_404
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView, GenericAPIView, DestroyAPIView
-from .serializers import ProductSerializer, CartSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer
+from .serializers import ProductSerializer, CartSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer
 from .models import Product, Cart, Client, CartItem, Order
-from rest_framework import viewsets
 from rest_framework import permissions, status
-from .pagination import ProductStorePagination
+from .pagination import ProductStorePagination, OrderListPagination
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -124,6 +123,15 @@ class CreateOrder(APIView):
         order = serializer.save()
 
         return Response(OrderSerializer(order, context=serializer.context).data, status=status.HTTP_201_CREATED)
+        
+class UserOrdersList(ListAPIView):
+    serializer_class = UserOrdersListSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    queryset = Order.objects.all()
+    pagination_class = OrderListPagination
+
+    def get_queryset(self):
+        return Order.objects.filter(user=self.request.user).order_by('-created_at')
 
 class UpdateOrderStatus(APIView):
     permission_classes = [permissions.IsAdminUser]
@@ -138,7 +146,7 @@ class UpdateOrderStatus(APIView):
         return Response({'status': order.status, 'detail': f'The order status was changed for {order.status}'})
     
 #==AUTHENTICATION==
-
+#ADICIONAR UMA VIEW PARA TROCAR A SENHA DPS
 class RegisterClient(CreateAPIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = ClientSerializer

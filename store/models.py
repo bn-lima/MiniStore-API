@@ -148,3 +148,10 @@ class Order(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     payment_method = models.CharField(blank=False, max_length=20, choices=PAYMENT_METHOD__CHOICES)
     discount_applied = models.ForeignKey(DiscountCupom, on_delete=models.SET_NULL, null=True, blank=True)
+
+    total_price = models.DecimalField(
+        decimal_places=2,
+        null=True,
+        max_digits=10,
+        blank=True,
+        )

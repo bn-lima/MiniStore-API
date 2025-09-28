@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ProductsStoreView, ProductDetail, RegisterClient, LogoutClient, LoginClient, AddToCart, DeleteCartItem, Continue_Payment, CreateOrder, UpdateOrderStatus
+from .views import ProductsStoreView, ProductDetail, RegisterClient, LogoutClient, LoginClient, AddToCart, DeleteCartItem, Continue_Payment, CreateOrder, UpdateOrderStatus, UserOrdersList
 
 
 urlpatterns = [
@@ -26,5 +26,6 @@ urlpatterns = [
     path('order/', include([
         path('create_order/', CreateOrder.as_view(), name='create_order'),
         path('<int:pk>/update_status/', UpdateOrderStatus.as_view(), name='update_status'),
+        path('order_list/', UserOrdersList.as_view(), name='order_list'),   
         ])),
 ]

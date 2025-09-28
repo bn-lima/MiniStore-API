@@ -24,3 +24,14 @@ def validate_coupon(cupom_code, cart):
     discounted_price = discount.apply_discount(cart.total())
 
     return discounted_price, f"Coupon applied {discount.discount_percent}% off"
+
+def calculate_total_price(code, cart, discount):
+    if discount and code:
+        total_price, _ = validate_coupon(code, cart)
+        if total_price == cart.total():
+            discount = None
+    else:
+        total_price = cart.total()
+        discount = None
+        
+    return total_price, discount
