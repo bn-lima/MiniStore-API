@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView, GenericAPIView
-from .serializers import ProductSerializer, CartSerializer, ClientSerializer
+from .serializers import ProductSerializer, CartSerializer, ClientSerializer, ChangePasswordSerializer
 from .models import Product, Cart, Client
 from rest_framework import viewsets
 from rest_framework import permissions, status
@@ -63,3 +63,13 @@ class LoginClient(APIView):
             token, _ = Token.objects.get_or_create(user=user)
             return Response({'Token': token.key})
         return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+    
+class ChangePasswordClient(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def patch(self, request, *args, **kwargs):
+        user = request.user
+        serializer = ChangePasswordSerializer(data=request.data, context = {'user': user})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({'detail': 'Your password was changed successfully'})
