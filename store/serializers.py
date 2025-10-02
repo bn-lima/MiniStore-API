@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Product, Cart, Client
+from .models import Product, Cart, Client, PasswordResetToken
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
 
@@ -65,3 +65,21 @@ class ChangePasswordSerializer(serializers.Serializer):
         user.set_password(new_password)
         user.save()
         return user
+    
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+
+    def validate(self, data):
+        email = data.get('email')
+        try:
+            user = Client.objects.get(email=email)
+        except Client.DoesNotExist:
+            raise serializers.ValidationError('Invalid email or user does not exist')
+        
+        data['user'] = user
+        return data
+    
+    def save(self, **kwargs):
+        user = self.validated_data.get('user')
+        token = PasswordResetToken.objects.create(user=user)
+        return token

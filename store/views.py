@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView, GenericAPIView
-from .serializers import ProductSerializer, CartSerializer, ClientSerializer, ChangePasswordSerializer
+from .serializers import ProductSerializer, CartSerializer, ClientSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer
 from .models import Product, Cart, Client
 from rest_framework import viewsets
 from rest_framework import permissions, status
@@ -9,7 +9,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import authenticate
-from .services import authenticate_client
+from .services import authenticate_client, send_reset_email_simulation
 
 
 #==STORE==
@@ -75,4 +75,17 @@ class ChangePasswordClient(APIView):
         serializer = ChangePasswordSerializer(data=request.data, context = {'user': user})
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response({'detail': 'Your password was changed successfully'})
+        return Response({'detail': 'Your password was changed successfully'}, status=status.HTTP_200_OK)
+
+class PasswordResetRequestClient(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        token = serializer.save()
+
+        link = send_reset_email_simulation(token)
+        return Response({'detail':'An email has been sent to you with a password reset link', 'link': link}, status=status.HTTP_200_OK)
+    
+#CONTINUAR O FLUXO AMANHÃ (pegar o token via query param, pegar o user associado ao token e mudar sua senha de acordo com um formulário de serializer enivado pelo user)
