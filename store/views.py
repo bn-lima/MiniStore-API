@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView, GenericAPIView
-from .serializers import ProductSerializer, CartSerializer, ClientSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer
-from .models import Product, Cart, Client
+from .serializers import ProductSerializer, CartSerializer, ClientSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer
+from .models import Product, Cart, Client, PasswordResetToken
 from rest_framework import viewsets
 from rest_framework import permissions, status
 from .pagination import ProductStorePagination
@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import authenticate
 from .services import authenticate_client, send_reset_email_simulation
-
+import uuid
 
 #==STORE==
 
@@ -78,14 +78,36 @@ class ChangePasswordClient(APIView):
         return Response({'detail': 'Your password was changed successfully'}, status=status.HTTP_200_OK)
 
 class PasswordResetRequestClient(APIView):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.AllowAny] 
 
     def post(self, request, *args, **kwargs):
         serializer = PasswordResetRequestSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        serializer.is_valid(raise_exception=True)   
         token = serializer.save()
 
         link = send_reset_email_simulation(token)
         return Response({'detail':'An email has been sent to you with a password reset link', 'link': link}, status=status.HTTP_200_OK)
     
-#CONTINUAR O FLUXO AMANHÃ (pegar o token via query param, pegar o user associado ao token e mudar sua senha de acordo com um formulário de serializer enivado pelo user)
+
+class PasswordResetClient(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        token_str = request.query_params.get('token')
+        if not token_str:
+            return Response({'error': 'Token is required'},status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            uuid_token = uuid.UUID(token_str)
+        except ValueError:
+            return Response({'error': 'Invalid token'},status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            token = PasswordResetToken.objects.get(token=uuid_token)
+        except PasswordResetToken.DoesNotExist:
+            return Response({'error':'Token does not exist'},status=status.HTTP_404_NOT_FOUND)
+               
+        serializer = PasswordResetSerializer(data=request.data, context={'token':token})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({'detail': 'Your password has been changed successfully'},status=status.HTTP_200_OK)

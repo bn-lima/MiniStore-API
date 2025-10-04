@@ -10,5 +10,5 @@ def authenticate_client(username, password):
         return token
     
 def send_reset_email_simulation(token): #DEF PROVISÓRIA
-    link = f"http://127.0.0.1:8000/future_url{token.token}" #SUBSTITUIR POR UM ENVIO DE EMAIL SIMULADO NO TERMINAL
+    link = f"http://127.0.0.1:8000/user/password_reset/?token={token.token}" #SUBSTITUIR POR UM ENVIO DE EMAIL SIMULADO NO TERMINAL
     return link

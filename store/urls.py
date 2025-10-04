@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ProductsStoreView, CartViewSet, ProductDetail, RegisterClient, LogoutClient, LoginClient, ChangePasswordClient, PasswordResetRequestClient
+from .views import ProductsStoreView, CartViewSet, ProductDetail, RegisterClient, LogoutClient, LoginClient, ChangePasswordClient, PasswordResetRequestClient, PasswordResetClient
 
 router = DefaultRouter()
 router.register(r'cart', CartViewSet)
@@ -20,6 +20,7 @@ urlpatterns = [
         path('login/', LoginClient.as_view(), name='login'),
 
         path('change_password/', ChangePasswordClient.as_view(), name='change_password/'),
-        path('password_reset_request/', PasswordResetRequestClient.as_view(), name='password_reset_request')
+        path('password_reset_request/', PasswordResetRequestClient.as_view(), name='password_reset_request'),
+        path('password_reset/', PasswordResetClient.as_view(), name='password_reset')
     ])),
 ]

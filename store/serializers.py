@@ -83,3 +83,30 @@ class PasswordResetRequestSerializer(serializers.Serializer):
         user = self.validated_data.get('user')
         token = PasswordResetToken.objects.create(user=user)
         return token
+
+
+class PasswordResetSerializer(serializers.Serializer):
+    new_password = serializers.CharField(max_length=150, required=True)
+    confirm_new_password = serializers.CharField(max_length=150, required=True)
+    
+    def validate(self, data):
+        new_password = data.get('new_password')
+        confirm_new_password = data.get('confirm_new_password')
+
+        if new_password != confirm_new_password:
+            raise serializers.ValidationError('Passwords do not match')
+        return data
+    
+    def save(self, **kwargs):
+        new_password = self.validated_data.get('new_password')
+        token = self.context.get('token')
+        user = token.user
+
+        if token.is_expired() or token.used == True:
+            raise serializers.ValidationError('Token is expired or already used')
+        
+        user.set_password(new_password)
+        token.mark_as_used()
+        user.save()
+        token.save()
+        
