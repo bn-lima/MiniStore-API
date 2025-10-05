@@ -9,8 +9,8 @@ from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import authenticate
-from .services import authenticate_client, send_reset_email_simulation
-import uuid
+from .services import authenticate_client, send_reset_email_simulation, validate_reset_token
+
 
 #==STORE==
 
@@ -94,19 +94,12 @@ class PasswordResetClient(APIView):
 
     def post(self, request, *args, **kwargs):
         token_str = request.query_params.get('token')
-        if not token_str:
-            return Response({'error': 'Token is required'},status=status.HTTP_400_BAD_REQUEST)
-        
-        try:
-            uuid_token = uuid.UUID(token_str)
-        except ValueError:
-            return Response({'error': 'Invalid token'},status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            token = PasswordResetToken.objects.get(token=uuid_token)
-        except PasswordResetToken.DoesNotExist:
-            return Response({'error':'Token does not exist'},status=status.HTTP_404_NOT_FOUND)
-               
+        token = validate_reset_token(token_str)
+
+        if not token:
+            return Response({'error': 'Invalid or missing token'},status=status.HTTP_400_BAD_REQUEST)
+        
         serializer = PasswordResetSerializer(data=request.data, context={'token':token})
         serializer.is_valid(raise_exception=True)
         serializer.save()

@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import Product, Cart, Client, PasswordResetToken
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
+from .services import validate_password
 
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
@@ -20,7 +21,7 @@ class ClientSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Client
-        fields = ['id', 'username', 'password', 'confirm_password', 'cpf', 'location', 'phone']
+        fields = ['id', 'username', 'password', 'confirm_password', 'cpf', 'location', 'phone', 'email']
         extra_kwargs = {
             'password': {'write_only': True}
         }
@@ -28,10 +29,12 @@ class ClientSerializer(serializers.ModelSerializer):
     def validate(self, data):
         confirm_password = data.get('confirm_password')
         password = data.get('password')
-        if password != confirm_password:
-            raise serializers.ValidationError("Passwords do not match")
+
+        validated_password = validate_password(password, confirm_password)
+        if not validated_password:
+            raise serializers.ValidationError('Passwords do not match')
         return data
-    
+
     def create(self, validated_data):
 
         validated_data.pop('confirm_password')
@@ -93,7 +96,8 @@ class PasswordResetSerializer(serializers.Serializer):
         new_password = data.get('new_password')
         confirm_new_password = data.get('confirm_new_password')
 
-        if new_password != confirm_new_password:
+        password = validate_password(new_password, confirm_new_password)
+        if not password:
             raise serializers.ValidationError('Passwords do not match')
         return data
     
@@ -109,4 +113,3 @@ class PasswordResetSerializer(serializers.Serializer):
         token.mark_as_used()
         user.save()
         token.save()
-        

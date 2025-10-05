@@ -81,7 +81,7 @@ class Client(AbstractUser):
     cpf = models.CharField(max_length=11, validators=[numeric_validator], blank=False, unique=True)
     location = models.CharField(max_length=200, blank=False)
     phone = models.CharField(max_length=11, validators=[numeric_validator], blank=False)
-    email = models.EmailField(unique=True)
+    email = models.EmailField(unique=True, blank=False)
 
 
 class Cart(models.Model):
