@@ -143,7 +143,7 @@ class UpdateOrderStatus(APIView):
         serializer.is_valid(raise_exception=True)
 
         serializer.save()
-        return Response({'status': order.status, 'detail': f'The order status was changed for {order.status}'})
+        return Response({'status': order.status, 'detail': f"The order status was changed to {order.status} and an email was sent to order's owner"})
     
 #==AUTHENTICATION==
 #ADICIONAR UMA VIEW PARA TROCAR A SENHA DPS

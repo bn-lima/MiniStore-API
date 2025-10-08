@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import Product, Cart, Client, CartItem, Order, DiscountCupom
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
-from. services import validate_coupon, calculate_total_price
+from. services import validate_coupon, calculate_total_price, send_update_order_to_email
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -194,8 +194,12 @@ class UserOrdersListSerializer(serializers.ModelSerializer):
 class UpdateStatusSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=Order.STATUS_CHOICES)
     
-    def save(self):
+    def save(self, **kwargs):
         order = self.context.get('order')
         order.status = self.validated_data.get('status')
         order.save()
+
+        user = order.user
+
+        send_update_order_to_email(user.email, order)
         return order

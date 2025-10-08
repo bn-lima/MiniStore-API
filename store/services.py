@@ -1,6 +1,7 @@
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
 from .models import DiscountCupom
+from django.core.mail import EmailMessage
 
 def authenticate_client(username, password):
     user = authenticate(username=username, password=password)
@@ -35,3 +36,14 @@ def calculate_total_price(code, cart, discount):
         discount = None
         
     return total_price, discount
+
+def send_update_order_to_email(email, order):
+    order_code = str(order.order_id)[:7]
+
+    send_email = EmailMessage(
+        subject= f'Your order was updated!',
+        body = f'Your order #{order_code} was updated to {order.status}',
+        to=[email]
+    )
+
+    send_email.send()
