@@ -106,8 +106,8 @@ class CartItemQuantitySerializer(serializers.Serializer):
             raise serializers.ValidationError('Quantity must be at least 1')
         return value
     
-class OrderSerializer(serializers.ModelSerializer): #TESTAR ISSO AMANHA =============================================================================================================================================================================================================================================================================================================================================
-    coupon_code = serializers.CharField(max_length=10, required=False) #AJUSTAR ESSA VIEW PRO NOVO CAMPO DO MODELO-===================================================================================================================================================================================================================================================================
+class OrderSerializer(serializers.ModelSerializer):
+    coupon_code = serializers.CharField(max_length=10, required=False)
     message = serializers.SerializerMethodField()
 
     class Meta:
@@ -132,7 +132,7 @@ class OrderSerializer(serializers.ModelSerializer): #TESTAR ISSO AMANHA ========
         _, message = validate_coupon(coupon_code, cart)
         return message
     
-    def create(self, validated_data): #TESTAR ISSO AMANHA RODA NO POSTMAN E ORA PRA FUNCIONAR =============================================================================================================================================================================================================================================================================================================================================
+    def create(self, validated_data): 
         user = self.context['request'].user
         cart = self.context.get('cart')
         code = self.context.get('coupon_code')
