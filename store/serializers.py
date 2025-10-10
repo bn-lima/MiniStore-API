@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import Product, Cart, Client, CartItem, Order, DiscountCupom
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
-from. services import validate_coupon, calculate_total_price, send_update_order_to_email
+from. services import validate_coupon, calculate_total_price, EmailService, verify_order_status
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -106,8 +106,8 @@ class CartItemQuantitySerializer(serializers.Serializer):
             raise serializers.ValidationError('Quantity must be at least 1')
         return value
     
-class OrderSerializer(serializers.ModelSerializer): #TESTAR ISSO AMANHA =============================================================================================================================================================================================================================================================================================================================================
-    coupon_code = serializers.CharField(max_length=10, required=False) #AJUSTAR ESSA VIEW PRO NOVO CAMPO DO MODELO-===================================================================================================================================================================================================================================================================
+class OrderSerializer(serializers.ModelSerializer): 
+    coupon_code = serializers.CharField(max_length=10, required=False)
     message = serializers.SerializerMethodField()
 
     class Meta:
@@ -132,7 +132,7 @@ class OrderSerializer(serializers.ModelSerializer): #TESTAR ISSO AMANHA ========
         _, message = validate_coupon(coupon_code, cart)
         return message
     
-    def create(self, validated_data): #TESTAR ISSO AMANHA RODA NO POSTMAN E ORA PRA FUNCIONAR =============================================================================================================================================================================================================================================================================================================================================
+    def create(self, validated_data):
         user = self.context['request'].user
         cart = self.context.get('cart')
         code = self.context.get('coupon_code')
@@ -166,6 +166,8 @@ class OrderSerializer(serializers.ModelSerializer): #TESTAR ISSO AMANHA ========
 
         cart.finalized = True
         cart.save()
+
+        verify_order_status(order.status, user.email, order)
 
         return order
     
@@ -201,5 +203,6 @@ class UpdateStatusSerializer(serializers.Serializer):
 
         user = order.user
 
-        send_update_order_to_email(user.email, order)
+        verify_order_status(order.status, user.email, order)
+
         return order

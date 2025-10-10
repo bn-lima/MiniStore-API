@@ -37,13 +37,57 @@ def calculate_total_price(code, cart, discount):
         
     return total_price, discount
 
-def send_update_order_to_email(email, order):
-    order_code = str(order.order_id)[:7]
+def verify_order_status(status, email, order):
+    send_email_message = EmailService(email, order)
 
-    send_email = EmailMessage(
-        subject= f'Your order was updated!',
-        body = f'Your order #{order_code} was updated to {order.status}',
-        to=[email]
-    )
+    status_methods = {
+        "pending":  send_email_message.order_created,
+        "paid": send_email_message.paid_order, 
+        "processing": send_email_message.processing_order,
+    }
 
-    send_email.send()
+    method = status_methods.get(status)
+    if method:
+        method()
+
+        #DICT DE STATUS DO MODELO
+
+#     status_method = {
+#         "pending": "Pending",
+#         "paid": "Paid", 
+#         "processing": "Processing",
+#         "shipped": "Shipped",
+#         "out_for_delivery": "Out for delivery",
+#         "delivered": "Delivered",
+#         "cancelled": "Cancelled",
+#         "refunded": "Refunded",
+# }
+
+class EmailService:
+    def __init__(self, email, order):
+        self.order_code = str(order.order_id)[:7]
+        self.email = email
+        
+    def order_created(self):
+        email_message = EmailMessage(
+            subject = f"Your order #{self.order_code} has been created successfully!",
+            body = f"Your order #{self.order_code} has been created. You'll be notified as soon as there are updates.",
+            to = [self.email]
+        )
+        email_message.send()
+
+    def processing_order(self):
+        email_message = EmailMessage(
+            subject = f"Your order #{self.order_code} is being processed!",
+            body = f"We'd like to inform you that your order #{self.order_code} is being processed. As soon as there are updates, you'll be notified.",
+            to = [self.email]
+        )
+        email_message.send()
+
+    def paid_order(self):
+        email_message = EmailMessage(
+            subject = f"Your order payment has been approved!",
+            body = f"We'd like to inform you that your payment has been approved! As soon as there are updates about your order #{self.order_code}, you'll be notified.",
+            to = [self.email]
+        )
+        email_message.send()
