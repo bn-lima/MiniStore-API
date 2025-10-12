@@ -1,11 +1,12 @@
 from django.db import models
 from django.core.validators import RegexValidator
-from django.contrib.auth.models import User
 from django.contrib.auth.models import AbstractUser
 from django.utils.text import slugify
 from django.utils import timezone
 from django.db.models import Sum
 import uuid
+from datetime import timedelta
+
 
 class DiscountCupom(models.Model):
 
@@ -78,9 +79,10 @@ numeric_validator = RegexValidator(r'^\d{11}$', 'Enter exactly 11 numbers')
 
 
 class Client(AbstractUser):
-    cpf = models.CharField(max_length=11, validators=[numeric_validator], blank=False)
+    cpf = models.CharField(max_length=11, validators=[numeric_validator], blank=False, unique=True)
     location = models.CharField(max_length=200, blank=False)
     phone = models.CharField(max_length=11, validators=[numeric_validator], blank=False)
+    email = models.EmailField(unique=True, blank=False)
 
 
 class Cart(models.Model):
@@ -118,6 +120,7 @@ class CartItem(models.Model):
     def __str__(self):
         return f"{self.product} - {self.quantity}"
     
+
 class Order(models.Model):
 
     STATUS_CHOICES = [
@@ -155,3 +158,22 @@ class Order(models.Model):
         max_digits=10,
         blank=True,
         )
+
+
+def token_expiration():
+    return timezone.now() + timedelta(hours=1)
+
+
+class PasswordResetToken(models.Model):
+    user = models.ForeignKey(Client, blank=False, on_delete=models.CASCADE)
+    token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(default=token_expiration)
+    used = models.BooleanField(default=False)
+
+    def is_expired(self):
+        return timezone.now() > self.expires_at
+
+    def mark_as_used(self):
+        self.used = True
+        return self.used

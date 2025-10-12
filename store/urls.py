@@ -1,7 +1,5 @@
-from django.contrib import admin
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import ProductsStoreView, ProductDetail, RegisterClient, LogoutClient, LoginClient, AddToCart, DeleteCartItem, Continue_Payment, CreateOrder, UpdateOrderStatus, UserOrdersList
+from .views import ProductsStoreView, ProductDetail, RegisterClient, LogoutClient, LoginClient, AddToCart, DeleteCartItem, Continue_Payment, CreateOrder, UpdateOrderStatus, UserOrdersList, ChangePasswordClient, PasswordResetRequestClient, PasswordResetClient
 
 
 urlpatterns = [
@@ -16,7 +14,10 @@ urlpatterns = [
     path('user/', include([
         path('register/', RegisterClient.as_view(), name='register'),
         path('logout/', LogoutClient.as_view(), name='logout'),
-        path('login/', LoginClient.as_view(), name='login'),     
+        path('login/', LoginClient.as_view(), name='login'),
+        path('change_password/', ChangePasswordClient.as_view(), name='change_password'),
+        path('password_reset_request/', PasswordResetRequestClient.as_view(), name='password_reset_request'),
+        path('password_reset/', PasswordResetClient.as_view(), name='password_reset')    
         ])),
 
     path('payment/', include([
@@ -28,4 +29,5 @@ urlpatterns = [
         path('<int:pk>/update_status/', UpdateOrderStatus.as_view(), name='update_status'),
         path('order_list/', UserOrdersList.as_view(), name='order_list'),   
         ])),
+
 ]

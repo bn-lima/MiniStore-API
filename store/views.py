@@ -1,14 +1,13 @@
-from django.shortcuts import render, get_object_or_404
-from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView, GenericAPIView, DestroyAPIView
-from .serializers import ProductSerializer, CartSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer
+from django.shortcuts import get_object_or_404
+from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView
+from .serializers import ProductSerializer, CartSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer
 from .models import Product, Cart, Client, CartItem, Order
 from rest_framework import permissions, status
 from .pagination import ProductStorePagination, OrderListPagination
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.contrib.auth import authenticate
-from .services import authenticate_client
+from .services import authenticate_client, send_reset_email_simulation, validate_reset_token
 
 
 #==STORE==
@@ -173,3 +172,41 @@ class LoginClient(APIView):
         if token:
             return Response({'Token': token.key})
         return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+    
+class ChangePasswordClient(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def patch(self, request, *args, **kwargs):
+        user = request.user
+        serializer = ChangePasswordSerializer(data=request.data, context = {'user': user})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({'detail': 'Your password was changed successfully'}, status=status.HTTP_200_OK)
+
+class PasswordResetRequestClient(APIView):
+    permission_classes = [permissions.AllowAny] 
+
+    def post(self, request, *args, **kwargs):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)   
+        token = serializer.save()
+
+        link = send_reset_email_simulation(token)
+        return Response({'detail':'An email has been sent to you with a password reset link', 'link': link}, status=status.HTTP_200_OK)
+    
+
+class PasswordResetClient(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        token_str = request.query_params.get('token')
+
+        token = validate_reset_token(token_str)
+
+        if not token:
+            return Response({'error': 'Invalid or missing token'},status=status.HTTP_400_BAD_REQUEST)
+        
+        serializer = PasswordResetSerializer(data=request.data, context={'token':token})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({'detail': 'Your password has been changed successfully'},status=status.HTTP_200_OK)

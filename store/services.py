@@ -1,9 +1,10 @@
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
-from .models import DiscountCupom
+from .models import DiscountCupom, PasswordResetToken
 from django.core.mail import EmailMessage
+import uuid
 
-def authenticate_client(username, password):
+def authenticate_client(username, password): 
     user = authenticate(username=username, password=password)
     if user is not None:
         token, _ = Token.objects.get_or_create(user=user)
@@ -55,20 +56,7 @@ def verify_order_status(status, email, order):
     if method:
         method()
 
-        #DICT DE STATUS DO MODELO
-
-#     status_method = {
-#         "pending": "Pending",
-#         "paid": "Paid", 
-#         "processing": "Processing",
-#         "shipped": "Shipped",
-#         "out_for_delivery": "Out for delivery",
-#         "delivered": "Delivered",
-#         "cancelled": "Cancelled",
-#         "refunded": "Refunded",                                               
-# }
-
-class EmailService:                                                             #ARRUMAR O INGLES
+class EmailService:
     def __init__(self, email, order):
         self.order_code = str(order.order_id)[:7]
         self.email = email
@@ -132,6 +120,33 @@ class EmailService:                                                             
     def refunded_order(self):
         email_message = EmailMessage(
             subject = f"Your order #{self.order_code} has been refunded successfully!",
-            body = f"We'd like to inform you that your order #{self.order_code} has been refunded successfully."
+            body = f"We'd like to inform you that your order #{self.order_code} has been refunded successfully.",
+            to = [self.email    ]
         )
         email_message.send()
+
+def send_reset_email_simulation(token): #DEF PROVISÓRIA
+    link = f"http://127.0.0.1:8000/user/password_reset/?token={token.token}" #SUBSTITUIR POR UM ENVIO DE EMAIL SIMULADO NO TERMINAL
+    return link
+
+def validate_password(password, confirm_password):
+    if password != confirm_password:
+        return False
+    return True
+
+def validate_reset_token(token_str):
+    
+    if not token_str:
+        return None
+    
+    try:
+        uuid_token = uuid.UUID(token_str)
+    except ValueError:
+        return None
+
+    try:
+        token = PasswordResetToken.objects.get(token=uuid_token)
+    except PasswordResetToken.DoesNotExist:
+        return None
+    
+    return token
