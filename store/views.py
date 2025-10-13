@@ -7,7 +7,7 @@ from .pagination import ProductStorePagination, OrderListPagination
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .services import authenticate_client, send_reset_email_simulation, validate_reset_token
+from .services import authenticate_client, send_reset_email, validate_reset_token
 
 
 #==STORE==
@@ -28,8 +28,8 @@ class ProductDetail(RetrieveAPIView):
     queryset = Product.objects.all()
     lookup_field = 'slug'
 
-class AddToCart(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+class AddToCart(APIView): # Mover essa lógica para o serializer ou services 
+    permission_classes = [permissions.IsAuthenticated]# Rever lógica: um usuário pode adicionar um item no carrinho mesmo que ele esteja sem estoque
         
     def post(self, request, pk, *args, **kwargs,):
         serializer = CartItemQuantitySerializer(data=request.data)
@@ -54,7 +54,7 @@ class AddToCart(APIView):
 
         return Response({'detail': 'Product Added To Cart', 'cart_subtotal': cart_item.subtotal(), 'cart_total': cart.total(), 'total_items': cart.total_items()}, status=status.HTTP_200_OK)
     
-class DeleteCartItem(APIView):
+class DeleteCartItem(APIView): # Mover essa lógica para o serializer ou services
     permission_classes =[permissions.IsAuthenticated]
 
     def delete(self, request, pk, *args, **kwargs):
@@ -145,7 +145,6 @@ class UpdateOrderStatus(APIView):
         return Response({'status': order.status, 'detail': f"The order status was changed to {order.status} and an email was sent to order's owner"})
     
 #==AUTHENTICATION==
-#ADICIONAR UMA VIEW PARA TROCAR A SENHA DPS
 class RegisterClient(CreateAPIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = ClientSerializer
@@ -189,10 +188,10 @@ class PasswordResetRequestClient(APIView):
     def post(self, request, *args, **kwargs):
         serializer = PasswordResetRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)   
-        token = serializer.save()
+        token, user = serializer.save()
 
-        link = send_reset_email_simulation(token)
-        return Response({'detail':'An email has been sent to you with a password reset link', 'link': link}, status=status.HTTP_200_OK)
+        send_reset_email(token, user)
+        return Response({'detail':'An email has been sent to you with a password reset link'}, status=status.HTTP_200_OK)
     
 
 class PasswordResetClient(APIView):

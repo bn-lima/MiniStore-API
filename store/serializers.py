@@ -249,7 +249,7 @@ class PasswordResetRequestSerializer(serializers.Serializer):
     def save(self, **kwargs):
         user = self.validated_data.get('user')
         token = PasswordResetToken.objects.create(user=user)
-        return token
+        return token, user
 
 
 class PasswordResetSerializer(serializers.Serializer):
