@@ -29,28 +29,38 @@ class ProductDetail(RetrieveAPIView):
     lookup_field = 'slug'
 
 class AddToCart(APIView): # Mover essa lógica para o serializer ou services 
-    permission_classes = [permissions.IsAuthenticated]# Rever lógica: um usuário pode adicionar um item no carrinho mesmo que ele esteja sem estoque
+    permission_classes = [permissions.IsAuthenticated]
         
     def post(self, request, pk, *args, **kwargs,):
         serializer = CartItemQuantitySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        product = Product.objects.get(id=pk)
+        try:
+            product = Product.objects.get(id=pk)
+        except Product.DoesNotExist:
+            return Response({'error': 'This product does not exist'},status=status.HTTP_404_NOT_FOUND) 
+
+        if not product.active:
+            return Response({"error": "This product isn't active"}, status=status.HTTP_404_NOT_FOUND)
+        
         quantity = serializer.validated_data.get('product_quantity')
 
         cart, _= Cart.get_cart(user=request.user)
 
-        cart_item, created = CartItem.objects.get_or_create(cart=cart, product=product)
+        cart_item = CartItem.objects.filter(cart=cart, product=product).first()
+        items_quantity = cart_item.quantity if cart_item else 0
 
-        total_quantity = quantity if created else quantity + cart_item.quantity
+        total_quantity = items_quantity + quantity
 
-        if not product.active:
-            return Response({"error": "This product isn't active"}, status=status.HTTP_404_NOT_FOUND)
         if product.stock < total_quantity:
             return Response({"error": "The quantity to add exceeds available stock"},status=status.HTTP_400_BAD_REQUEST)
         
-        cart_item.quantity = total_quantity
-        cart_item.save()
+        if not cart_item:
+            cart_item = CartItem.objects.create(cart=cart, product=product, quantity=total_quantity)
+
+        else:
+            cart_item.quantity = total_quantity
+            cart_item.save()
 
         return Response({'detail': 'Product Added To Cart', 'cart_subtotal': cart_item.subtotal(), 'cart_total': cart.total(), 'total_items': cart.total_items()}, status=status.HTTP_200_OK)
     
