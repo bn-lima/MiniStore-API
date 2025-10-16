@@ -1,13 +1,13 @@
 from django.shortcuts import get_object_or_404
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView
-from .serializers import ProductSerializer, CartSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer
+from .serializers import ProductSerializer, CartSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer, AddToCartSerializer
 from .models import Product, Cart, Client, CartItem, Order
 from rest_framework import permissions, status
 from .pagination import ProductStorePagination, OrderListPagination
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .services import authenticate_client, send_reset_email, validate_reset_token
+from .services import authenticate_client, send_reset_email, validate_reset_token, validate_product
 
 
 #==STORE==
@@ -28,39 +28,24 @@ class ProductDetail(RetrieveAPIView):
     queryset = Product.objects.all()
     lookup_field = 'slug'
 
-class AddToCart(APIView): # Mover essa lógica para o serializer ou services 
+class AddToCart(APIView):
     permission_classes = [permissions.IsAuthenticated]
         
     def post(self, request, pk, *args, **kwargs,):
-        serializer = CartItemQuantitySerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        quantity_serializer = CartItemQuantitySerializer(data=request.data)
+        quantity_serializer.is_valid(raise_exception=True)
 
-        try:
-            product = Product.objects.get(id=pk)
-        except Product.DoesNotExist:
-            return Response({'error': 'This product does not exist'},status=status.HTTP_404_NOT_FOUND) 
-
-        if not product.active:
-            return Response({"error": "This product isn't active"}, status=status.HTTP_404_NOT_FOUND)
+        product = validate_product(pk)
         
-        quantity = serializer.validated_data.get('product_quantity')
+        if not product:
+            return Response({"error": "The product doesn't exist or isn't active"},status=status.HTTP_400_BAD_REQUEST)
 
+        quantity = quantity_serializer.validated_data.get('product_quantity')
         cart, _= Cart.get_cart(user=request.user)
 
-        cart_item = CartItem.objects.filter(cart=cart, product=product).first()
-        items_quantity = cart_item.quantity if cart_item else 0
-
-        total_quantity = items_quantity + quantity
-
-        if product.stock < total_quantity:
-            return Response({"error": "The quantity to add exceeds available stock"},status=status.HTTP_400_BAD_REQUEST)
-        
-        if not cart_item:
-            cart_item = CartItem.objects.create(cart=cart, product=product, quantity=total_quantity)
-
-        else:
-            cart_item.quantity = total_quantity
-            cart_item.save()
+        serializer = AddToCartSerializer(data={}, context={'quantity':quantity, 'cart':cart, 'product': product})
+        serializer.is_valid(raise_exception=True)
+        cart_item = serializer.save()
 
         return Response({'detail': 'Product Added To Cart', 'cart_subtotal': cart_item.subtotal(), 'cart_total': cart.total(), 'total_items': cart.total_items()}, status=status.HTTP_200_OK)
     

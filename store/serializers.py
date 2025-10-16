@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Product, Cart, Client, CartItem, Order, DiscountCupom, PasswordResetToken
 from rest_framework.authtoken.models import Token
-from. services import validate_coupon, calculate_total_price, verify_order_status, validate_password
+from. services import validate_coupon, calculate_total_price, verify_order_status, validate_password, calculate_total_quantity, get_cart_item
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -278,3 +278,33 @@ class PasswordResetSerializer(serializers.Serializer):
         user.save()
         token.save()
 
+
+class AddToCartSerializer(serializers.Serializer):
+
+    def validate(self, data):
+        quantity = self.context.get('quantity')
+        cart = self.context.get('cart')
+        product = self.context.get('product')
+
+        total_quantity = calculate_total_quantity(quantity, cart, product)
+
+        if product.stock < total_quantity:
+            raise serializers.ValidationError('The quantity to add exceeds available stock')
+        
+        data['total_quantity'] = total_quantity
+        return data
+        
+    def save(self, **kwags):
+        cart = self.context.get('cart')
+        product = self.context.get('product')
+        total_quantity = self.validated_data.get('total_quantity')
+
+        cart_item = get_cart_item(cart, product)
+
+        if not cart_item:
+            cart_item = CartItem.objects.create(cart=cart, product=product, quantity=total_quantity)
+        else:
+            cart_item.quantity = total_quantity
+            cart_item.save()
+
+        return cart_item

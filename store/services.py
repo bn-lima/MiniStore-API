@@ -1,6 +1,6 @@
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
-from .models import DiscountCupom, PasswordResetToken
+from .models import DiscountCupom, PasswordResetToken, Product, CartItem
 from django.core.mail import EmailMessage
 import uuid
 
@@ -161,3 +161,36 @@ def validate_reset_token(token_str):
         return None
     
     return token
+
+def validate_product(pk):
+
+    try:
+        product = Product.objects.get(id=pk)
+    except Product.DoesNotExist:
+        return None 
+
+    if not product.active:
+        return None
+    
+    return product
+
+def get_cart_item(cart, product):
+    try:
+        cart_item = CartItem.objects.get(cart=cart, product=product)
+        
+    except CartItem.DoesNotExist:
+        return None
+    else:
+        return cart_item
+    
+def calculate_total_quantity(quantity_to_add, cart, product):
+    cart_item = get_cart_item(cart, product)
+
+    if not cart_item:
+        items_quantity = 0
+    else:
+        items_quantity = cart_item.quantity
+
+    total_quantity = items_quantity + quantity_to_add
+
+    return total_quantity
