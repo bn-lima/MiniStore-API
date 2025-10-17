@@ -308,3 +308,28 @@ class AddToCartSerializer(serializers.Serializer):
             cart_item.save()
 
         return cart_item
+
+class DeleteCartItemSerializer(serializers.Serializer):
+
+    def validate(self, data):
+        cart_item = self.context.get('cart_item')
+
+        if not cart_item:
+            raise serializers.ValidationError("This product doesn't exist in your cart")
+        
+        data['cart_item'] = cart_item
+        return data
+    
+    def save(self, **kwargs):
+        cart_item = self.validated_data.get('cart_item')
+        quantity = self.context.get('quantity')
+
+        cart_item.quantity -= quantity
+        if cart_item.quantity <= 0:
+            cart_item.delete()
+            return None, None
+
+        cart_item.save()
+        subtotal = cart_item.subtotal()
+        return cart_item, subtotal
+

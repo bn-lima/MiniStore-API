@@ -1,13 +1,13 @@
 from django.shortcuts import get_object_or_404
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView
-from .serializers import ProductSerializer, CartSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer, AddToCartSerializer
+from .serializers import ProductSerializer, CartSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer, AddToCartSerializer, DeleteCartItemSerializer
 from .models import Product, Cart, Client, CartItem, Order
 from rest_framework import permissions, status
 from .pagination import ProductStorePagination, OrderListPagination
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .services import authenticate_client, send_reset_email, validate_reset_token, validate_product
+from .services import authenticate_client, send_reset_email, validate_reset_token, validate_product, get_cart_item_by_id
 
 
 #==STORE==
@@ -49,31 +49,25 @@ class AddToCart(APIView):
 
         return Response({'detail': 'Product Added To Cart', 'cart_subtotal': cart_item.subtotal(), 'cart_total': cart.total(), 'total_items': cart.total_items()}, status=status.HTTP_200_OK)
     
-class DeleteCartItem(APIView): # Mover essa lógica para o serializer ou services
+class DeleteCartItem(APIView):
     permission_classes =[permissions.IsAuthenticated]
 
     def delete(self, request, pk, *args, **kwargs):
-        serializer = CartItemQuantitySerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        quantity_serializer = CartItemQuantitySerializer(data=request.data)
+        quantity_serializer.is_valid(raise_exception=True)
 
         cart, _ = Cart.get_cart(user=request.user)
-        if not cart:
-            return Response({"error": "You don't have an active cart"},status=status.HTTP_404_NOT_FOUND)
-        
-        cart_item = cart.items.filter(product__id=pk, product__active=True).first()
-        qtd_to_remove = serializer.validated_data.get('product_quantity')
+        cart_item = get_cart_item_by_id(pk, cart)
+        quantity = quantity_serializer.validated_data.get('product_quantity')
 
-        if cart_item:
-            cart_item.quantity -= qtd_to_remove
-            if cart_item.quantity <= 0:
-                cart_item.delete()
-                return Response({'detail':  'The product was completely removed from your cart', 'cart_total': cart.total()},status=status.HTTP_200_OK)
-            else:
-                cart_item.save()
-                subtotal = cart_item.subtotal()
-                return Response({'detail': 'The product quantity has been updated in your cart', 'cart_subtotal': subtotal, 'cart_total': cart.total(), 'total_items': cart.total_items()},status=status.HTTP_200_OK)
+        serializer = DeleteCartItemSerializer(data={}, context={'cart':cart, 'cart_item':cart_item, 'quantity': quantity})
+        serializer.is_valid(raise_exception=True)
+        updated_cart_item, subtotal = serializer.save()
         
-        return Response({"error": "The product doesn't exist in your cart"}, status=status.HTTP_404_NOT_FOUND)
+        if not updated_cart_item:
+            return Response({'detail':  'The product was completely removed from your cart', 'cart_total': cart.total()},status=status.HTTP_200_OK)
+        
+        return Response({'detail': 'The product quantity has been updated in your cart', 'cart_subtotal': subtotal, 'cart_total': cart.total(), 'total_items': cart.total_items()},status=status.HTTP_200_OK)
     
 #==PAYMENT==
 

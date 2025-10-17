@@ -194,3 +194,10 @@ def calculate_total_quantity(quantity_to_add, cart, product):
     total_quantity = items_quantity + quantity_to_add
 
     return total_quantity
+
+def get_cart_item_by_id(pk, cart):
+    try:
+        cart_item = CartItem.objects.get(product_id=pk, cart=cart)
+    except CartItem.DoesNotExist:
+        return None
+    return cart_item
