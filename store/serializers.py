@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Product, Cart, Client, CartItem, Order, DiscountCupom, PasswordResetToken
 from rest_framework.authtoken.models import Token
-from. services import validate_coupon, calculate_total_price, verify_order_status, validate_password, calculate_total_quantity, get_cart_item
+from. services import validate_coupon, calculate_total_price, verify_order_status, validate_password, calculate_total_quantity, get_cart_item, mark_coupon_as_used
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -146,7 +146,11 @@ class OrderSerializer(serializers.ModelSerializer):
             discount = None
 
         total_price, discount = calculate_total_price(code, cart, discount)
-        
+
+        used_coupon = mark_coupon_as_used(discount, user)
+        if not used_coupon:
+            raise serializers.ValidationError('Invalid coupon or already used.')
+
         order = Order.objects.create(
             user=user,
             cart=cart,

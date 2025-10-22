@@ -11,17 +11,20 @@ def authenticate_client(username, password):
 
         return token
     
-def validate_coupon(cupom_code, cart):
+def validate_coupon(coupon_code, cart):
     try:
-        discount = DiscountCupom.objects.get(cupom=cupom_code)
+        discount = DiscountCupom.objects.get(cupom=coupon_code)
     except DiscountCupom.DoesNotExist:
-        return cart.total(), "Coupon code does not exist"
+        return cart.total(), "Coupon code doesn't exist"
  
     if not discount.is_active():
         return cart.total(), "Coupon code is not active"
     
     if not discount.verify_min_purchase(cart.total()):
         return cart.total(), "Minimum purchase amount not reached"
+    
+    if cart.user.used_coupons.filter(id=discount.id).exists():
+        return cart.total(), "This coupon has been used"
     
     discounted_price = discount.apply_discount(cart.total())
 
@@ -201,3 +204,9 @@ def get_cart_item_by_id(pk, cart):
     except CartItem.DoesNotExist:
         return None
     return cart_item
+
+def mark_coupon_as_used(discount, user):
+    if discount and not user.used_coupons.filter(id=discount.id).exists():
+        user.used_coupons.add(discount)
+        return discount
+    return None
