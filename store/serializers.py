@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Product, Cart, Client, CartItem, Order, DiscountCupom, PasswordResetToken
 from rest_framework.authtoken.models import Token
-from. services import validate_coupon, calculate_total_price, verify_order_status, validate_password, calculate_total_quantity, get_cart_item
+from. services import validate_coupon, calculate_total_price, verify_order_status, validate_password, calculate_total_quantity, get_cart_item, product_is_inactive, check_inactive_products
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -39,6 +39,7 @@ class CartSerializer(serializers.ModelSerializer):
     message = serializers.SerializerMethodField()
     coupon_code = serializers.SerializerMethodField()
     total_items = serializers.SerializerMethodField()
+    products_valid = serializers.SerializerMethodField()
 
     class Meta:
         model = Cart
@@ -68,6 +69,15 @@ class CartSerializer(serializers.ModelSerializer):
     
     def get_total_items(self, obj):
         return obj.total_items()
+    
+    def get_products_valid(self, obj):
+        has_inactive, inactive_names = check_inactive_products(obj)
+
+        items_word = "item" if len(inactive_names) == 1 else "items"
+        if has_inactive:
+
+            return f"Your cart has an inactive {items_word}: {', '.join(inactive_names)}"
+        return "All products are active"
     
 class ClientSerializer(serializers.ModelSerializer):
     confirm_password = serializers.CharField(max_length=150, write_only=True)
@@ -142,11 +152,18 @@ class OrderSerializer(serializers.ModelSerializer):
         
         try:
             discount = DiscountCupom.objects.get(cupom=code)
-        except DiscountCupom.DoesNotExist:
+        except DiscountCupom.DoesNotExist:      
             discount = None
 
         total_price, discount = calculate_total_price(code, cart, discount)
-        
+
+        has_inactive, inactive_names = product_is_inactive(cart)
+
+        items_word = "item" if len(inactive_names) == 1 else "items"
+
+        if has_inactive:
+            raise serializers.ValidationError(f"The following {items_word} are inactive and have been removed from your cart: {', '.join(inactive_names)}")
+
         order = Order.objects.create(
             user=user,
             cart=cart,
@@ -159,7 +176,7 @@ class OrderSerializer(serializers.ModelSerializer):
             if item.quantity > item.product.stock:
                 raise serializers.ValidationError(f"Not enough stock for {item.product.name}")
             
-            product = item.product
+            product = item.product# MOVER ISSO PARA O SERVICES
             product.stock -= item.quantity
             if product.stock <= 0:
                 product.stock =0

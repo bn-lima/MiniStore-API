@@ -11,11 +11,11 @@ def authenticate_client(username, password):
 
         return token
     
-def validate_coupon(cupom_code, cart):
+def validate_coupon(coupon_code, cart):
     try:
-        discount = DiscountCupom.objects.get(cupom=cupom_code)
+        discount = DiscountCupom.objects.get(cupom=coupon_code)
     except DiscountCupom.DoesNotExist:
-        return cart.total(), "Coupon code does not exist"
+        return cart.total(), "Coupon code doesn't exist"
  
     if not discount.is_active():
         return cart.total(), "Coupon code is not active"
@@ -201,3 +201,26 @@ def get_cart_item_by_id(pk, cart):
     except CartItem.DoesNotExist:
         return None
     return cart_item
+
+def product_is_inactive(cart):
+    has_inactive = False
+    inactive_list = []
+
+    for item in cart.items.all():
+        if not item.product.active:
+            inactive_list.append(item.product.name)
+            item.delete()
+            has_inactive = True
+            
+    return has_inactive, inactive_list
+
+def check_inactive_products(cart):
+    has_inactive = False
+    inactive_list = []
+
+    for item in cart.items.all():
+        if not item.product.active:
+            inactive_list.append(item.product.name)
+            has_inactive = True
+    
+    return has_inactive, inactive_list
