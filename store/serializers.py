@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Product, Cart, Client, CartItem, Order, DiscountCupom, PasswordResetToken
 from rest_framework.authtoken.models import Token
-from. services import validate_coupon, calculate_total_price, verify_order_status, validate_password, calculate_total_quantity, get_cart_item, product_is_inactive, check_inactive_products
+from. services import validate_coupon, calculate_total_price, verify_order_status, validate_password, calculate_total_quantity, get_cart_item, product_is_inactive, check_inactive_products, adjust_quantity_to_stock, check_quantity_to_stock
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -40,6 +40,7 @@ class CartSerializer(serializers.ModelSerializer):
     coupon_code = serializers.SerializerMethodField()
     total_items = serializers.SerializerMethodField()
     products_valid = serializers.SerializerMethodField()
+    stock_issue = serializers.SerializerMethodField()
 
     class Meta:
         model = Cart
@@ -73,11 +74,21 @@ class CartSerializer(serializers.ModelSerializer):
     def get_products_valid(self, obj):
         has_inactive, inactive_names = check_inactive_products(obj)
 
-        items_word = "item" if len(inactive_names) == 1 else "items"
         if has_inactive:
+            items_word = "item" if len(inactive_names) == 1 else "items"
 
             return f"Your cart has an inactive {items_word}: {', '.join(inactive_names)}"
         return "All products are active"
+    
+    def get_stock_issue(self, obj):
+        stock_issue, overstock_items = check_quantity_to_stock(obj)
+
+        if stock_issue:
+            item_word = "an item" if len(overstock_items) == 1 else "some items"
+            exceed_word = "exceeds" if len(overstock_items) == 1 else "exceed"
+
+            return f"Your cart has {item_word} that {exceed_word} the available stock: {', '.join(overstock_items)}"
+        return "Everything in your cart is available in stock."
     
 class ClientSerializer(serializers.ModelSerializer):
     confirm_password = serializers.CharField(max_length=150, write_only=True)
@@ -163,7 +174,12 @@ class OrderSerializer(serializers.ModelSerializer):
 
         if has_inactive:
             raise serializers.ValidationError(f"The following {items_word} are inactive and have been removed from your cart: {', '.join(inactive_names)}")
-
+        
+        not_enough_stock, high_quantity_items, cart_items = adjust_quantity_to_stock(cart)
+        if not_enough_stock:
+            this_item_word = "this item" if len(high_quantity_items) == 1 else "these items"
+            raise serializers.ValidationError(f"Not enough stock for {', '.join(high_quantity_items)}. The quantity for {this_item_word} has been adjusted")
+        
         order = Order.objects.create(
             user=user,
             cart=cart,
@@ -172,10 +188,7 @@ class OrderSerializer(serializers.ModelSerializer):
             **validated_data
         )
         
-        for item in cart.items.all():
-            if item.quantity > item.product.stock:
-                raise serializers.ValidationError(f"Not enough stock for {item.product.name}")
-            
+        for item in cart_items:
             product = item.product# MOVER ISSO PARA O SERVICES
             product.stock -= item.quantity
             if product.stock <= 0:

@@ -224,3 +224,30 @@ def check_inactive_products(cart):
             has_inactive = True
     
     return has_inactive, inactive_list
+
+def adjust_quantity_to_stock(cart):
+    not_enough_stock = False
+    high_quantity_items = []
+    cart_items = []
+
+    for item in cart.items.all():
+        cart_items.append(item)
+
+        if item.quantity > item.product.stock:
+            item.quantity = item.product.stock
+            item.save()
+            not_enough_stock = True
+            high_quantity_items.append(item.product.name)
+
+    return not_enough_stock, high_quantity_items, cart_items
+
+def check_quantity_to_stock(cart):
+    exceeds_stock = False
+    overstock_items = []
+
+    for item in cart.items.all():
+        if item.quantity > item.product.stock:
+            exceeds_stock = True
+            overstock_items.append(item.product.name)
+
+    return exceeds_stock, overstock_items
