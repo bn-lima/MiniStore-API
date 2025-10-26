@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Product, Cart, Client, CartItem, Order, DiscountCupom, PasswordResetToken
 from rest_framework.authtoken.models import Token
-from. services import validate_coupon, calculate_total_price, verify_order_status, validate_password, calculate_total_quantity, get_cart_item, product_is_inactive, check_inactive_products, adjust_quantity_to_stock, check_quantity_to_stock
+from. services import validate_coupon, calculate_total_price, verify_order_status, validate_password, calculate_total_quantity, get_cart_item, product_is_inactive, check_inactive_products, adjust_quantity_to_stock, check_quantity_to_stock, finalize_order_process
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -170,15 +170,18 @@ class OrderSerializer(serializers.ModelSerializer):
 
         has_inactive, inactive_names = product_is_inactive(cart)
 
-        items_word = "item" if len(inactive_names) == 1 else "items"
+        to_be_verb = "is" if len(inactive_names) == 1 else "are"
+        have_word = "has" if len(inactive_names) == 1 else "have"
 
         if has_inactive:
-            raise serializers.ValidationError(f"The following {items_word} are inactive and have been removed from your cart: {', '.join(inactive_names)}")
+            raise serializers.ValidationError(f"The following {', '.join(inactive_names)} {to_be_verb} inactive and {have_word} been removed from your cart")
         
-        not_enough_stock, high_quantity_items, cart_items = adjust_quantity_to_stock(cart)
+        not_enough_stock, high_quantity_items = adjust_quantity_to_stock(cart)
         if not_enough_stock:
             this_item_word = "this item" if len(high_quantity_items) == 1 else "these items"
-            raise serializers.ValidationError(f"Not enough stock for {', '.join(high_quantity_items)}. The quantity for {this_item_word} has been adjusted")
+            have_word = "has" if len(high_quantity_items) == 1 else "have"
+
+            raise serializers.ValidationError(f"Not enough stock for {', '.join(high_quantity_items)}. The quantity for {this_item_word} {have_word} been adjusted")
         
         order = Order.objects.create(
             user=user,
@@ -188,16 +191,7 @@ class OrderSerializer(serializers.ModelSerializer):
             **validated_data
         )
         
-        for item in cart_items:
-            product = item.product# MOVER ISSO PARA O SERVICES
-            product.stock -= item.quantity
-            if product.stock <= 0:
-                product.stock =0
-                product.active = False
-            product.save()
-
-        cart.finalized = True
-        cart.save()
+        finalize_order_process(cart)
 
         verify_order_status(order.status, user.email, order)
 

@@ -228,10 +228,8 @@ def check_inactive_products(cart):
 def adjust_quantity_to_stock(cart):
     not_enough_stock = False
     high_quantity_items = []
-    cart_items = []
 
     for item in cart.items.all():
-        cart_items.append(item)
 
         if item.quantity > item.product.stock:
             item.quantity = item.product.stock
@@ -239,7 +237,7 @@ def adjust_quantity_to_stock(cart):
             not_enough_stock = True
             high_quantity_items.append(item.product.name)
 
-    return not_enough_stock, high_quantity_items, cart_items
+    return not_enough_stock, high_quantity_items
 
 def check_quantity_to_stock(cart):
     exceeds_stock = False
@@ -251,3 +249,18 @@ def check_quantity_to_stock(cart):
             overstock_items.append(item.product.name)
 
     return exceeds_stock, overstock_items
+
+def finalize_order_process(cart):
+    for item in cart.items.all():
+        product = item.product
+
+        product.stock -= item.quantity
+
+        if product.stock <= 0:
+            product.stock = 0
+            product.active = False
+            
+        product.save()
+        
+    cart.finalized = True
+    cart.save()
