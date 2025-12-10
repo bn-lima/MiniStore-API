@@ -1,6 +1,5 @@
 from django.db import models
 from django.core.validators import RegexValidator
-from django.contrib.auth.models import User
 from django.contrib.auth.models import AbstractUser
 from django.utils.text import slugify
 from django.utils import timezone
@@ -51,7 +50,8 @@ class Product(models.Model):
     description = models.CharField(max_length=1000, blank=False)
     stock = models.IntegerField(blank=False,null=False)
     active = models.BooleanField(default=False)
-    
+    picture = models.ImageField(upload_to="products/", blank=False, null=False)    
+
     slug = models.SlugField(max_length=255, unique=True, blank=True)
 
     def calculate_discount(self, cupom_code):
@@ -89,6 +89,25 @@ class Cart(models.Model):
     created_at = models.DateField(auto_now_add=True)
     finalized = models.BooleanField(default=False)
 
+    passed_payment_step = models.BooleanField(default=False)
+    passed_continue_to_payment = models.BooleanField(default=False)
+    
+    has_preference = models.BooleanField(default=False)#  criar um modelo para armazenar esses campos
+    preference_expiration = models.DateTimeField(null=True, blank=True)
+    payment_method = models.CharField(max_length=200, blank=True)
+
+    def is_preference_expired(self):
+        if not self.preference_expiration:
+            return False
+        
+        if timezone.now() > self.preference_expiration and self.has_preference:
+            self.has_preference = False
+            self.preference_expiration = None
+            self.save()
+
+            return True
+        return False
+    
     def total(self):
         return sum(item.subtotal() for item in self.items.all())
     
@@ -131,22 +150,13 @@ class Order(models.Model):
         ("refunded", "Refunded"),
     ]
 
-
-    PAYMENT_METHOD__CHOICES = [
-        
-        ("card","Card"),
-        ("pix", "Pix"),
-        ("payment_slip", "Payment Slip"),
-    ]
-
-
     user = models.ForeignKey(Client, on_delete=models.CASCADE)
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE)
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='pending')
     order_id = models.UUIDField(blank=False, default=uuid.uuid4, editable=False, unique=True)
     created_at = models.DateTimeField(blank=False, default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
-    payment_method = models.CharField(blank=False, max_length=20, choices=PAYMENT_METHOD__CHOICES)
+    payment_method = models.CharField(max_length=50, blank=False, null=False)
     discount_applied = models.ForeignKey(DiscountCupom, on_delete=models.SET_NULL, null=True, blank=True)
 
     total_price = models.DecimalField(

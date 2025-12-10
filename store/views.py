@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView, GenericAPIView, DestroyAPIView
-from .serializers import ProductSerializer, CartSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer
+from .serializers import ProductSerializer, CartSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, PayerSerializer
 from .models import Product, Cart, Client, CartItem, Order
 from rest_framework import permissions, status
 from .pagination import ProductStorePagination, OrderListPagination
@@ -8,7 +8,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import authenticate
-from .services import authenticate_client
+from .services import authenticate_client, mp_create_preference, create_payment
 
 
 #==STORE==
@@ -65,7 +65,7 @@ class DeleteCartItem(APIView):
         cart, _ = Cart.get_cart(user=request.user)
         if not cart:
             return Response({"error": "You don't have an active cart"},status=status.HTTP_404_NOT_FOUND)
-        
+        #VALIDAR SE O CARRINHO POSSUI ITENS==============================================================================================
         cart_item = cart.items.filter(product__id=pk, product__active=True).first()
         qtd_to_remove = serializer.validated_data.get('product_quantity')
 
@@ -96,9 +96,69 @@ class Continue_Payment(APIView):
 
         if not cart.items.exists():
             return Response({"error": "You don't have items in your cart"}, status=status.HTTP_404_NOT_FOUND)
+        
         serializer = CartSerializer(cart, context={'coupon_code': coupon_code})
+        
+        cart.passed_continue_to_payment = True
+        cart.save()
+
         return Response(serializer.data)
+
+class CreatePreference(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+
+        cart, _ = Cart.get_cart(user=request.user)
+
+        if not cart.items.exists():
+            return Response({"error": "You do not have any items in your cart"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not cart.passed_continue_to_payment:
+            return Response({"error": "You haven't completed the 'continue to payment' step"}, status=status.HTTP_402_PAYMENT_REQUIRED)
+        
+        if cart.passed_payment_step:
+            return Response({"error": "You have already paid for these items"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not cart.is_preference_expired() and cart.has_preference:
+            return Response({"error": "You already have a pending payment"}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = PayerSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        client_full_name = serializer.validated_data.get("client_full_name")
+        client_cpf = serializer.validated_data.get("client_cpf")
+        client_email = serializer.validated_data.get("client_email")
+        
+        query_serializer = CouponCodeSerializer(data=request.query_params)
+        query_serializer.is_valid(raise_exception=True)
     
+        coupon_code = query_serializer.validated_data.get("coupon_code")
+
+        response = mp_create_preference(cart, client_full_name, client_cpf, client_email, coupon_code, request)
+
+        return Response({"init_point": response['init_point'], "preference_id": response['id']}) #LINK DE PAGAMENTO REAL DO MERCADO PAGO
+
+class PaymentStatus(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, payment_state, *args, **kwargs):
+        cart = Cart.get_cart(user=request.user)
+
+        if cart.is_preference_expired() and not cart.has_preference:
+            return Response({"error": "You do not have a pending payment to verify the status"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if payment_state == "success":
+            payment_id = request.query_params.get('collection_id')
+            create_payment(cart, payment_id)
+            return Response({"detail": "The payment was successful"}, status=status.HTTP_200_OK)
+        
+        if payment_state == "failure":
+            return Response({"detail": "The payment has failed"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if payment_state == "pending":
+            return Response({"detail": "The payment is still pending"}, status=status.HTTP_200_OK)
+
 #==ORDER==
 
 class CreateOrder(APIView):
@@ -110,6 +170,9 @@ class CreateOrder(APIView):
 
         if not cart.items.exists():
             return Response({"error": "You don't have items in your cart"}, status=status.HTTP_404_NOT_FOUND)
+        
+        if not cart.passed_payment_step:
+            return Response({"error": "You must complete the payment before creating an order"}, status=status.HTTP_400_BAD_REQUEST)
         
         serializer = OrderSerializer(
             data=request.data,

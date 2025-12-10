@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ProductsStoreView, ProductDetail, RegisterClient, LogoutClient, LoginClient, AddToCart, DeleteCartItem, Continue_Payment, CreateOrder, UpdateOrderStatus, UserOrdersList
+from .views import ProductsStoreView, ProductDetail, RegisterClient, LogoutClient, LoginClient, AddToCart, DeleteCartItem, Continue_Payment, CreateOrder, UpdateOrderStatus, UserOrdersList, CreatePreference, PaymentStatus
 
 
 urlpatterns = [
@@ -21,6 +21,8 @@ urlpatterns = [
 
     path('payment/', include([
         path('continue_to_payment/', Continue_Payment.as_view(), name='continue_to_payment'),
+        path('create_preference/', CreatePreference.as_view(), name="create_preference"),
+        path('payment_status/<str:payment_state>/', PaymentStatus.as_view(), name='payment_status')
         ])),
 
     path('order/', include([

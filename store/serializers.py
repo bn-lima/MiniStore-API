@@ -1,8 +1,9 @@
 from rest_framework import serializers
 from .models import Product, Cart, Client, CartItem, Order, DiscountCupom
-from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
-from. services import validate_coupon, calculate_total_price
+from .services import validate_coupon, calculate_total_price
+from django.core.validators import RegexValidator
+
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -37,7 +38,7 @@ class CouponCodeSerializer(serializers.Serializer):
 class CartSerializer(serializers.ModelSerializer):
     total = serializers.SerializerMethodField()
     items = CartItemSerializer(many=True, read_only=True)
-    message = serializers.SerializerMethodField()
+    coupon_message = serializers.SerializerMethodField()
     coupon_code = serializers.SerializerMethodField()
     total_items = serializers.SerializerMethodField()
 
@@ -55,7 +56,7 @@ class CartSerializer(serializers.ModelSerializer):
         new_total, _ = validate_coupon(coupon_code, obj)
         return new_total
         
-    def get_message(self, obj):
+    def get_coupon_message(self, obj):
         coupon_code = self.context.get('coupon_code')
 
         if not coupon_code or coupon_code in ["None", "null"]:
@@ -69,7 +70,7 @@ class CartSerializer(serializers.ModelSerializer):
     
     def get_total_items(self, obj):
         return obj.total_items()
-    
+
 class ClientSerializer(serializers.ModelSerializer):
     confirm_password = serializers.CharField(max_length=200, write_only=True)
     
@@ -115,13 +116,6 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ('user','cart','status','order_id','created_at','updated_at','discount_applied','total_price')
 
-    def validate_payment_method(self, value):
-        if not value:
-            raise serializers.ValidationError('You must provide a payment method')
-        if value not in ['pix','card','payment_slip']:
-            raise serializers.ValidationError('Invalid payment method')
-        return value
-    
     def get_message(self, _):
         coupon_code = self.context.get('coupon_code')
         cart = self.context.get('cart')
@@ -150,6 +144,7 @@ class OrderSerializer(serializers.ModelSerializer):
             cart=cart,
             discount_applied=discount,
             total_price=total_price,
+            payment_method=cart.payment_method,
             **validated_data
         )
         
@@ -199,3 +194,13 @@ class UpdateStatusSerializer(serializers.Serializer):
         order.status = self.validated_data.get('status')
         order.save()
         return order
+    
+class PayerSerializer(serializers.Serializer):
+    client_full_name = serializers.CharField(max_length=200, required=True)
+    client_cpf = serializers.CharField(max_length=11, required=True)
+    client_email = serializers.EmailField(required=True)
+
+    def validate_client_cpf(self, value):
+        if not value.isdigit():
+            raise serializers.ValidationError("The cpf must only contain digits")
+        return value
