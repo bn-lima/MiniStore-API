@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Client, DiscountCupom, Product, Cart, CartItem, Order
+from .models import Client, DiscountCupom, Product, Cart, CartItem, Order, MPPreference
 
 @admin.register(DiscountCupom)
 class DiscountCupomAdmin(admin.ModelAdmin):
@@ -36,3 +36,8 @@ class CartAdmin(admin.ModelAdmin):
 class OrderAdmin(admin.ModelAdmin):
     list_display = ('user','status','order_id','created_at','updated_at','payment_method','discount_applied')
     search_fields = ('user','status','order_id','created_at','updated_at','payment_method','discount_applied')
+
+@admin.register(MPPreference)
+class MPPreferenceAdmin(admin.ModelAdmin):
+    list_display = ('preference_id','value','payment_method', 'expired','paid', 'cart', 'init_point')
+    search_fields = ('preference_id','value','payment_method', 'expired','paid', 'cart')

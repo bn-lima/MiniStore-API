@@ -7,9 +7,7 @@ from .pagination import ProductStorePagination, OrderListPagination
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.contrib.auth import authenticate
-from .services import authenticate_client, mp_create_preference, create_payment
-
+from .services import authenticate_client, mp_create_preference, create_payment, get_preference, validate_signature, get_cart_by_id, get_payment_data
 
 #==STORE==
 
@@ -108,19 +106,19 @@ class CreatePreference(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
-
         cart, _ = Cart.get_cart(user=request.user)
+        preference = get_preference(cart)
 
         if not cart.items.exists():
             return Response({"error": "You do not have any items in your cart"}, status=status.HTTP_400_BAD_REQUEST)
         
         if not cart.passed_continue_to_payment:
-            return Response({"error": "You haven't completed the 'continue to payment' step"}, status=status.HTTP_402_PAYMENT_REQUIRED)
+            return Response({"error": "You haven't completed the 'continue to payment' step"}, status=status.HTTP_400_BAD_REQUEST)
         
         if cart.passed_payment_step:
             return Response({"error": "You have already paid for these items"}, status=status.HTTP_400_BAD_REQUEST)
         
-        if not cart.is_preference_expired() and cart.has_preference:
+        if preference:
             return Response({"error": "You already have a pending payment"}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = PayerSerializer(data=request.data)
@@ -143,14 +141,13 @@ class PaymentStatus(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, payment_state, *args, **kwargs):
-        cart = Cart.get_cart(user=request.user)
+        cart, _ = Cart.get_cart(user=request.user)
+        preference = get_preference(cart)
 
-        if cart.is_preference_expired() and not cart.has_preference:
+        if not preference:
             return Response({"error": "You do not have a pending payment to verify the status"}, status=status.HTTP_400_BAD_REQUEST)
 
         if payment_state == "success":
-            payment_id = request.query_params.get('collection_id')
-            create_payment(cart, payment_id)
             return Response({"detail": "The payment was successful"}, status=status.HTTP_200_OK)
         
         if payment_state == "failure":
@@ -159,14 +156,46 @@ class PaymentStatus(APIView):
         if payment_state == "pending":
             return Response({"detail": "The payment is still pending"}, status=status.HTTP_200_OK)
 
+#==WEBHOOK==
+class WebhookView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        data = request.data
+
+        data_id = data['data']['id']
+        x_request_id = request.headers['x-request-id']
+        signature_header = request.headers.get('x-signature')
+
+        if not data_id or not x_request_id or not signature_header:
+            return Response(status=status.HTTP_200_OK)
+
+        valid_signature = validate_signature(data_id, x_request_id, signature_header)
+
+        if valid_signature:
+            payment = get_payment_data(data_id)
+            payment_approved = payment['status']
+
+            if payment_approved == 'approved':
+                cart_id = payment['external_reference']
+                cart = get_cart_by_id(cart_id)
+
+                if not cart or cart.passed_payment_step:
+                    return Response(status=status.HTTP_200_OK)
+                
+                create_payment(cart, data_id)
+                return Response(status=status.HTTP_200_OK)
+            
+        return Response(status=status.HTTP_200_OK)
+
 #==ORDER==
 
 class CreateOrder(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
-
         cart, _ = Cart.get_cart(user=request.user)
+        preference = get_preference(cart)
 
         if not cart.items.exists():
             return Response({"error": "You don't have items in your cart"}, status=status.HTTP_404_NOT_FOUND)
@@ -179,7 +208,8 @@ class CreateOrder(APIView):
             context={
                 'request': request,
                 'coupon_code': request.data.get('coupon_code'),
-                'cart': cart
+                'cart': cart,
+                'preference': preference
             })
         serializer.is_valid(raise_exception=True)
 

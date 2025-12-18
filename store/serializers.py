@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Product, Cart, Client, CartItem, Order, DiscountCupom
 from rest_framework.authtoken.models import Token
-from .services import validate_coupon, calculate_total_price
+from .services import validate_coupon, calculate_total_price, get_discount, finalize_preference
 from django.core.validators import RegexValidator
 
 
@@ -114,7 +114,7 @@ class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = '__all__'
-        read_only_fields = ('user','cart','status','order_id','created_at','updated_at','discount_applied','total_price')
+        read_only_fields = ('user','cart','status','order_id','created_at','updated_at','discount_applied','total_price', 'payment_method')
 
     def get_message(self, _):
         coupon_code = self.context.get('coupon_code')
@@ -132,19 +132,18 @@ class OrderSerializer(serializers.ModelSerializer):
         code = self.context.get('coupon_code')
         validated_data.pop('coupon_code', None)
         
-        try:
-            discount = DiscountCupom.objects.get(cupom=code)
-        except DiscountCupom.DoesNotExist:
-            discount = None
+        discount_obj = get_discount(code)
 
-        total_price, discount = calculate_total_price(code, cart, discount)
+        _, discount = calculate_total_price(code, cart, discount_obj)
         
+        preference = self.context.get('preference')
+
         order = Order.objects.create(
             user=user,
             cart=cart,
-            discount_applied=discount,
-            total_price=total_price,
-            payment_method=cart.payment_method,
+            discount_applied=discount if discount else None,
+            total_price=preference.value,
+            payment_method=preference.payment_method,
             **validated_data
         )
         
@@ -162,6 +161,8 @@ class OrderSerializer(serializers.ModelSerializer):
         cart.finalized = True
         cart.save()
 
+        finalize_preference(preference)
+        
         return order
     
 class UserOrdersListSerializer(serializers.ModelSerializer):

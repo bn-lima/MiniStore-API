@@ -50,7 +50,7 @@ class Product(models.Model):
     description = models.CharField(max_length=1000, blank=False)
     stock = models.IntegerField(blank=False,null=False)
     active = models.BooleanField(default=False)
-    picture = models.ImageField(upload_to="products/", blank=False, null=False)    
+    picture = models.ImageField(upload_to="products/", blank=False, null=False, default='default.jpg')    
 
     slug = models.SlugField(max_length=255, unique=True, blank=True)
 
@@ -91,22 +91,6 @@ class Cart(models.Model):
 
     passed_payment_step = models.BooleanField(default=False)
     passed_continue_to_payment = models.BooleanField(default=False)
-    
-    has_preference = models.BooleanField(default=False)#  criar um modelo para armazenar esses campos
-    preference_expiration = models.DateTimeField(null=True, blank=True)
-    payment_method = models.CharField(max_length=200, blank=True)
-
-    def is_preference_expired(self):
-        if not self.preference_expiration:
-            return False
-        
-        if timezone.now() > self.preference_expiration and self.has_preference:
-            self.has_preference = False
-            self.preference_expiration = None
-            self.save()
-
-            return True
-        return False
     
     def total(self):
         return sum(item.subtotal() for item in self.items.all())
@@ -165,3 +149,21 @@ class Order(models.Model):
         max_digits=10,
         blank=True,
         )
+    
+class MPPreference(models.Model):
+
+    preference_expiration = models.DateTimeField(null=False, blank=False, editable=False    )
+    payment_method = models.CharField(max_length=200, default=None, null=True, blank=True, editable=False)
+    expired = models.BooleanField(default=False)
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, blank=False, null=False, editable=False)
+    paid = models.BooleanField(default=False)
+    value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    preference_id = models.CharField(max_length=200, null=True, blank=True, editable=False)
+    init_point = models.URLField(max_length=500, null=True, blank=True, editable=False)
+
+    def is_preference_expired(self):
+        if timezone.now() > self.preference_expiration:
+            self.expired = True
+            self.save()
+            return True
+        return False
