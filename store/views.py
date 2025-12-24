@@ -7,7 +7,7 @@ from .pagination import ProductStorePagination, OrderListPagination
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .services import authenticate_client, mp_create_preference, create_payment, get_preference, validate_signature, get_cart_by_id, get_payment_data
+from .services import authenticate_client, mp_create_preference, create_payment, get_preference, validate_signature, get_cart_by_id, get_payment_data, get_webhook_headers
 
 #==STORE==
 
@@ -34,7 +34,7 @@ class AddToCart(APIView):
         serializer = CartItemQuantitySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        product = Product.objects.get(id=pk)
+        product = Product.objects.get(id=pk) #AJUSTAR ISSO PRA N DAR ERRO SE O PRODUTO N EXISTIR
         quantity = serializer.validated_data.get('product_quantity')
 
         cart, _= Cart.get_cart(user=request.user)
@@ -164,8 +164,7 @@ class WebhookView(APIView):
         data = request.data
 
         data_id = data['data']['id']
-        x_request_id = request.headers['x-request-id']
-        signature_header = request.headers.get('x-signature')
+        x_request_id, signature_header = get_webhook_headers(request)
 
         if not data_id or not x_request_id or not signature_header:
             return Response(status=status.HTTP_200_OK)
@@ -173,17 +172,17 @@ class WebhookView(APIView):
         valid_signature = validate_signature(data_id, x_request_id, signature_header)
 
         if valid_signature:
-            payment = get_payment_data(data_id)
-            payment_approved = payment['status']
+            payment_data = get_payment_data(data_id)
+            payment_approved = payment_data['status']
 
             if payment_approved == 'approved':
-                cart_id = payment['external_reference']
+                cart_id = payment_data['external_reference']
                 cart = get_cart_by_id(cart_id)
 
                 if not cart or cart.passed_payment_step:
                     return Response(status=status.HTTP_200_OK)
                 
-                create_payment(cart, data_id)
+                create_payment(cart, payment_data)
                 return Response(status=status.HTTP_200_OK)
             
         return Response(status=status.HTTP_200_OK)

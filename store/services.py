@@ -159,10 +159,9 @@ def mp_create_preference(cart, full_name, cpf, email, coupon_code, request):
 
     return result
 
-def create_payment(cart, payment_id):
+def create_payment(cart, payment_data):
 
-    payment = get_payment_data(payment_id)
-    payment_method = payment['payment_type_id']
+    payment_method = payment_data['payment_type_id']
 
     preference = get_preference(cart)
 
@@ -218,3 +217,16 @@ def get_cart_by_id(cart_id):
     except Cart.DoesNotExist:
         return None
     return cart
+
+def get_webhook_headers(request):
+    try:
+        x_request_id = request.headers['x-request-id']
+    except KeyError:
+        x_request_id = None
+
+    try:
+        signature_header = request.headers['x-signature']
+    except KeyError:
+        signature_header = None
+
+    return x_request_id, signature_header
