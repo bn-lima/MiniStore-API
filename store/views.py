@@ -7,6 +7,7 @@ from .pagination import ProductStorePagination, OrderListPagination
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.viewsets import ModelViewSet
 from .services import authenticate_client, mp_create_preference, create_payment, get_preference, validate_signature, get_cart_by_id, get_payment_data, get_webhook_headers
 
 #==STORE==
@@ -265,3 +266,10 @@ class LoginClient(APIView):
         if token:
             return Response({'Token': token.key})
         return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+    
+#ADMIN-PANEL
+
+class ProductPanel(ModelViewSet):
+    permission_classes = [permissions.IsAdminUser]
+    serializer_class = ProductSerializer
+    queryset = Product.objects.all()

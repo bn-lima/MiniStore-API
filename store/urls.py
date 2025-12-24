@@ -1,8 +1,10 @@
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ProductsStoreView, ProductDetail, RegisterClient, LogoutClient, LoginClient, AddToCart, DeleteCartItem, Continue_Payment, CreateOrder, UpdateOrderStatus, UserOrdersList, CreatePreference, PaymentStatus, WebhookView
+from .views import ProductsStoreView, ProductDetail, RegisterClient, LogoutClient, LoginClient, AddToCart, DeleteCartItem, Continue_Payment, CreateOrder, UpdateOrderStatus, UserOrdersList, CreatePreference, PaymentStatus, WebhookView, ProductPanel
 
+router = DefaultRouter()
+router.register(r'products', ProductPanel, basename='products')
 
 urlpatterns = [
     path('store/', ProductsStoreView.as_view(), name='store'),
@@ -30,6 +32,8 @@ urlpatterns = [
         path('<int:pk>/update_status/', UpdateOrderStatus.as_view(), name='update_status'),
         path('order_list/', UserOrdersList.as_view(), name='order_list'),   
         ])),
+
+    path('admin_panel/', include(router.urls)),
 
     path('webhook/', WebhookView.as_view(), name='webhook'),
 ]
