@@ -205,3 +205,8 @@ class PayerSerializer(serializers.Serializer):
         if not value.isdigit():
             raise serializers.ValidationError("The cpf must only contain digits")
         return value
+
+class CouponSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DiscountCupom
+        fields = '__all__'

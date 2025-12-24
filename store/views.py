@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView, GenericAPIView, DestroyAPIView
-from .serializers import ProductSerializer, CartSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, PayerSerializer
-from .models import Product, Cart, Client, CartItem, Order
+from .serializers import ProductSerializer, CartSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, PayerSerializer, CouponSerializer
+from .models import Product, Cart, Client, CartItem, Order, DiscountCupom
 from rest_framework import permissions, status
 from .pagination import ProductStorePagination, OrderListPagination
 from rest_framework.authtoken.models import Token
@@ -273,3 +273,8 @@ class ProductPanel(ModelViewSet):
     permission_classes = [permissions.IsAdminUser]
     serializer_class = ProductSerializer
     queryset = Product.objects.all()
+
+class CouponPanel(ModelViewSet):
+    permission_classes = [permissions.IsAdminUser]
+    serializer_class = CouponSerializer
+    queryset = DiscountCupom.objects.all()
