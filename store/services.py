@@ -1,6 +1,6 @@
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
-from .models import DiscountCupom, MPPreference, Cart
+from .models import DiscountCupom, MPPreference, Cart, Product
 from django.conf import settings
 import uuid
 import mercadopago
@@ -54,10 +54,10 @@ def get_discount(coupon_code):
     return discount
 
 def get_cart_items_unit_price(cart):
-    unit_pirce = []
+    unit_price = []
     for item in cart.items.all():
-        unit_pirce.append(item.product.price)
-    return unit_pirce
+        unit_price.append(item.product.price)
+    return unit_price
 
 def calculate_item_discount(cart, coupon_code):
     discount_obj = get_discount(coupon_code)
@@ -230,3 +230,10 @@ def get_webhook_headers(request):
         signature_header = None
 
     return x_request_id, signature_header
+
+def get_product_by_id(product_id):
+    try:
+        product = Product.objects.get(pk=product_id)
+    except Product.DoesNotExist:
+        return None
+    return product

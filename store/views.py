@@ -8,7 +8,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
-from .services import authenticate_client, mp_create_preference, create_payment, get_preference, validate_signature, get_cart_by_id, get_payment_data, get_webhook_headers
+from .services import authenticate_client, mp_create_preference, create_payment, get_preference, validate_signature, get_cart_by_id, get_payment_data, get_webhook_headers, get_product_by_id
 
 #==STORE==
 
@@ -35,7 +35,11 @@ class AddToCart(APIView):
         serializer = CartItemQuantitySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        product = Product.objects.get(id=pk) #AJUSTAR ISSO PRA N DAR ERRO SE O PRODUTO N EXISTIR
+        product = get_product_by_id(pk)
+
+        if not product:
+            return Response({"error": "This product doesn't exist"}, status=status.HTTP_404_NOT_FOUND)
+        
         quantity = serializer.validated_data.get('product_quantity')
 
         cart, _= Cart.get_cart(user=request.user)
@@ -64,7 +68,10 @@ class DeleteCartItem(APIView):
         cart, _ = Cart.get_cart(user=request.user)
         if not cart:
             return Response({"error": "You don't have an active cart"},status=status.HTTP_404_NOT_FOUND)
-        #VALIDAR SE O CARRINHO POSSUI ITENS==============================================================================================
+        
+        if not cart.items.exists():
+            return Response({"error": "Your cart is empty"}, status=status.HTTP_404_NOT_FOUND)
+        
         cart_item = cart.items.filter(product__id=pk, product__active=True).first()
         qtd_to_remove = serializer.validated_data.get('product_quantity')
 
@@ -148,6 +155,9 @@ class PaymentStatus(APIView):
         if not preference:
             return Response({"error": "You do not have a pending payment to verify the status"}, status=status.HTTP_400_BAD_REQUEST)
 
+        if payment_state not in ["success", "failure", "pending"]:
+            return Response({"error": "Invalid payment status"}, status=status.HTTP_400_BAD_REQUEST)
+
         if payment_state == "success":
             return Response({"detail": "The payment was successful"}, status=status.HTTP_200_OK)
         
@@ -164,7 +174,7 @@ class WebhookView(APIView):
     def post(self, request, *args, **kwargs):
         data = request.data
 
-        data_id = data['data']['id']
+        data_id = data.get('data', {}).get('id')
         x_request_id, signature_header = get_webhook_headers(request)
 
         if not data_id or not x_request_id or not signature_header:
