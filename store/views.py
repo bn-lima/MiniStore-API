@@ -8,7 +8,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
-from .services import authenticate_client, mp_create_preference, create_payment, get_preference, validate_signature, get_cart_by_id, get_payment_data, get_webhook_headers, get_product_by_id
+from .services import authenticate_client, mp_create_preference, create_payment, get_preference, validate_signature, get_cart_by_id, get_payment_data, get_webhook_headers, get_product_by_id, get_cart_item_by_id, verify_cart_item_quantity
 
 #==STORE==
 
@@ -38,7 +38,7 @@ class AddToCart(APIView):
         product = get_product_by_id(pk)
 
         if not product:
-            return Response({"error": "This product doesn't exist"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "This product doesn't exist"}, status=status.HTTP_404_NOT_FOUND)
         
         quantity = serializer.validated_data.get('product_quantity')
 
@@ -49,9 +49,9 @@ class AddToCart(APIView):
         total_quantity = quantity if created else quantity + cart_item.quantity
 
         if not product.active:
-            return Response({"error": "This product isn't active"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "This product isn't active"}, status=status.HTTP_404_NOT_FOUND)
         if product.stock < total_quantity:
-            return Response({"error": "The quantity to add exceeds available stock"},status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "The quantity to add exceeds available stock"},status=status.HTTP_400_BAD_REQUEST)
         
         cart_item.quantity = total_quantity
         cart_item.save()
@@ -66,26 +66,22 @@ class DeleteCartItem(APIView):
         serializer.is_valid(raise_exception=True)
 
         cart, _ = Cart.get_cart(user=request.user)
-        if not cart:
-            return Response({"error": "You don't have an active cart"},status=status.HTTP_404_NOT_FOUND)
-        
+
         if not cart.items.exists():
-            return Response({"error": "Your cart is empty"}, status=status.HTTP_404_NOT_FOUND)
-        
-        cart_item = cart.items.filter(product__id=pk, product__active=True).first()
-        qtd_to_remove = serializer.validated_data.get('product_quantity')
+            return Response({"detail": "Your cart is empty"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        cart_item = get_cart_item_by_id(cart, pk)
+        quantity_to_remove = serializer.validated_data.get('product_quantity')
 
         if cart_item:
-            cart_item.quantity -= qtd_to_remove
-            if cart_item.quantity <= 0:
-                cart_item.delete()
-                return Response({'detail':  'The product was completely removed from your cart', 'cart_total': cart.total()},status=status.HTTP_200_OK)
+            valid_quantity, subtotal = verify_cart_item_quantity(cart_item, quantity_to_remove)
+
+            if not valid_quantity:
+                return Response({'detail':  'The product was completely removed from your cart', 'cart_total': cart.total(), 'total_items': cart.total_items()},status=status.HTTP_200_OK)
             else:
-                cart_item.save()
-                subtotal = cart_item.subtotal()
                 return Response({'detail': 'The product quantity has been updated in your cart', 'cart_subtotal': subtotal, 'cart_total': cart.total(), 'total_items': cart.total_items()},status=status.HTTP_200_OK)
         
-        return Response({"error": "The product doesn't exist in your cart"}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"detail": "The product doesn't exist in your cart"}, status=status.HTTP_404_NOT_FOUND)
     
 #==PAYMENT==
 
@@ -101,7 +97,7 @@ class Continue_Payment(APIView):
         coupon_code = query_serializer.validated_data.get('coupon_code')
 
         if not cart.items.exists():
-            return Response({"error": "You don't have items in your cart"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "You don't have items in your cart"}, status=status.HTTP_404_NOT_FOUND)
         
         serializer = CartSerializer(cart, context={'coupon_code': coupon_code})
         
@@ -118,16 +114,16 @@ class CreatePreference(APIView):
         preference = get_preference(cart)
 
         if not cart.items.exists():
-            return Response({"error": "You do not have any items in your cart"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "You do not have any items in your cart"}, status=status.HTTP_400_BAD_REQUEST)
         
         if not cart.passed_continue_to_payment:
-            return Response({"error": "You haven't completed the 'continue to payment' step"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "You haven't completed the 'continue to payment' step"}, status=status.HTTP_400_BAD_REQUEST)
         
         if cart.passed_payment_step:
-            return Response({"error": "You have already paid for these items"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "You have already paid for these items"}, status=status.HTTP_400_BAD_REQUEST)
         
         if preference:
-            return Response({"error": "You already have a pending payment"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "You already have a pending payment"}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = PayerSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -153,10 +149,10 @@ class PaymentStatus(APIView):
         preference = get_preference(cart)
 
         if not preference:
-            return Response({"error": "You do not have a pending payment to verify the status"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "You do not have a pending payment to verify the status"}, status=status.HTTP_400_BAD_REQUEST)
 
         if payment_state not in ["success", "failure", "pending"]:
-            return Response({"error": "Invalid payment status"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Invalid payment status"}, status=status.HTTP_400_BAD_REQUEST)
 
         if payment_state == "success":
             return Response({"detail": "The payment was successful"}, status=status.HTTP_200_OK)
@@ -208,10 +204,10 @@ class CreateOrder(APIView):
         preference = get_preference(cart)
 
         if not cart.items.exists():
-            return Response({"error": "You don't have items in your cart"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "You don't have items in your cart"}, status=status.HTTP_404_NOT_FOUND)
         
         if not cart.passed_payment_step:
-            return Response({"error": "You must complete the payment before creating an order"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "You must complete the payment before creating an order"}, status=status.HTTP_400_BAD_REQUEST)
         
         serializer = OrderSerializer(
             data=request.data,
@@ -275,7 +271,7 @@ class LoginClient(APIView):
 
         if token:
             return Response({'Token': token.key})
-        return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response({'detail': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
     
 #ADMIN-PANEL
 

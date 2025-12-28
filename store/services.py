@@ -1,6 +1,6 @@
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
-from .models import DiscountCupom, MPPreference, Cart, Product
+from .models import DiscountCupom, MPPreference, Cart, Product,  CartItem
 from django.conf import settings
 import uuid
 import mercadopago
@@ -237,3 +237,21 @@ def get_product_by_id(product_id):
     except Product.DoesNotExist:
         return None
     return product
+
+def get_cart_item_by_id(cart, cart_item_id):
+    try:
+        cart_item = cart.items.get(product__id=cart_item_id)
+    except CartItem.DoesNotExist:
+        return None                                                   
+    
+    return cart_item
+
+def verify_cart_item_quantity(cart_item, quantity):
+    cart_item.quantity -= quantity
+
+    if cart_item.quantity <= 0:
+        cart_item.delete()
+        return False, None
+    else: 
+        cart_item.save()
+        return True, cart_item.subtotal()
