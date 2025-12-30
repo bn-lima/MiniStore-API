@@ -1,14 +1,14 @@
-from django.shortcuts import render, get_object_or_404
-from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView, GenericAPIView, DestroyAPIView
-from .serializers import ProductSerializer, CartSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, PayerSerializer, CouponSerializer
+from django.shortcuts import get_object_or_404
+from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView
 from .models import Product, Cart, Client, CartItem, Order, DiscountCupom
+from .serializers import ProductSerializer, CartSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer, PayerSerializer, CouponSerializer
 from rest_framework import permissions, status
 from .pagination import ProductStorePagination, OrderListPagination
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
-from .services import authenticate_client, mp_create_preference, create_payment, get_preference, validate_signature, get_cart_by_id, get_payment_data, get_webhook_headers, get_product_by_id, get_cart_item_by_id, verify_cart_item_quantity
+from .services import authenticate_client, mp_create_preference, create_payment, get_preference, validate_signature, get_cart_by_id, get_payment_data, get_webhook_headers, get_product_by_id, get_cart_item_by_id, verify_cart_item_quantity, send_reset_email, validate_reset_token
 
 #==STORE==
 
@@ -28,8 +28,8 @@ class ProductDetail(RetrieveAPIView):
     queryset = Product.objects.all()
     lookup_field = 'slug'
 
-class AddToCart(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+class AddToCart(APIView): # Mover essa lógica para o serializer ou services 
+    permission_classes = [permissions.IsAuthenticated]# Rever lógica: um usuário pode adicionar um item no carrinho mesmo que ele esteja sem estoque
         
     def post(self, request, pk, *args, **kwargs,):
         serializer = CartItemQuantitySerializer(data=request.data)
@@ -58,7 +58,7 @@ class AddToCart(APIView):
 
         return Response({'detail': 'Product Added To Cart', 'cart_subtotal': cart_item.subtotal(), 'cart_total': cart.total(), 'total_items': cart.total_items()}, status=status.HTTP_200_OK)
     
-class DeleteCartItem(APIView):
+class DeleteCartItem(APIView): # Mover essa lógica para o serializer ou services
     permission_classes =[permissions.IsAuthenticated]
 
     def delete(self, request, pk, *args, **kwargs):
@@ -180,11 +180,11 @@ class WebhookView(APIView):
 
         if valid_signature:
             payment_data = get_payment_data(data_id)
-            payment_approved = payment_data['status']
+            payment_status = payment_data['status']
 
-            if payment_approved == 'approved':
-                cart_id = payment_data['external_reference']
-                cart = get_cart_by_id(cart_id)
+            if payment_status == 'approved':
+                cart_id = payment_data['external_reference'] #PEGAR O ID DO USER E BUSCAR UM USER NO BANCO AQUI =================================
+                cart = get_cart_by_id(int(cart_id))
 
                 if not cart or cart.passed_payment_step:
                     return Response(status=status.HTTP_200_OK)
@@ -242,10 +242,10 @@ class UpdateOrderStatus(APIView):
         serializer.is_valid(raise_exception=True)
 
         serializer.save()
-        return Response({'status': order.status, 'detail': f'The order status was changed for {order.status}'})
+        return Response({'status': order.status, 'detail': f"The order status was changed to {order.status} and an email was sent to order's owner"})
     
 #==AUTHENTICATION==
-#ADICIONAR UMA VIEW PARA TROCAR A SENHA DPS
+
 class RegisterClient(CreateAPIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = ClientSerializer
@@ -284,3 +284,43 @@ class CouponPanel(ModelViewSet):
     permission_classes = [permissions.IsAdminUser]
     serializer_class = CouponSerializer
     queryset = DiscountCupom.objects.all()
+
+#AUTH-PASSWORD MANAGEMENT
+
+class ChangePasswordClient(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def patch(self, request, *args, **kwargs):
+        user = request.user
+        serializer = ChangePasswordSerializer(data=request.data, context = {'user': user})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({'detail': 'Your password was changed successfully'}, status=status.HTTP_200_OK)
+
+class PasswordResetRequestClient(APIView):
+    permission_classes = [permissions.AllowAny] 
+
+    def post(self, request, *args, **kwargs):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)   
+        token, user = serializer.save()
+
+        send_reset_email(token, user)
+        return Response({'detail':'An email has been sent to you with a password reset link'}, status=status.HTTP_200_OK)
+    
+
+class PasswordResetClient(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        token_str = request.query_params.get('token')
+
+        token = validate_reset_token(token_str)
+
+        if not token:
+            return Response({'error': 'Invalid or missing token'},status=status.HTTP_400_BAD_REQUEST)
+        
+        serializer = PasswordResetSerializer(data=request.data, context={'token':token})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({'detail': 'Your password has been changed successfully'},status=status.HTTP_200_OK)

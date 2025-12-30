@@ -1,7 +1,6 @@
-from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ProductsStoreView, ProductDetail, RegisterClient, LogoutClient, LoginClient, AddToCart, DeleteCartItem, Continue_Payment, CreateOrder, UpdateOrderStatus, UserOrdersList, CreatePreference, PaymentStatus, WebhookView, ProductPanel, CouponPanel
+from .views import ProductsStoreView, ProductDetail, RegisterClient, LogoutClient, LoginClient, AddToCart, DeleteCartItem, Continue_Payment, CreateOrder, UpdateOrderStatus, UserOrdersList, CreatePreference, PaymentStatus, WebhookView, ProductPanel, CouponPanel, ChangePasswordClient, PasswordResetRequestClient, PasswordResetClient
 
 router = DefaultRouter()
 router.register(r'products', ProductPanel, basename='products')
@@ -19,7 +18,10 @@ urlpatterns = [
     path('user/', include([
         path('register/', RegisterClient.as_view(), name='register'),
         path('logout/', LogoutClient.as_view(), name='logout'),
-        path('login/', LoginClient.as_view(), name='login'),     
+        path('login/', LoginClient.as_view(), name='login'),
+        path('change_password/', ChangePasswordClient.as_view(), name='change_password'),
+        path('password_reset_request/', PasswordResetRequestClient.as_view(), name='password_reset_request'),
+        path('password_reset/', PasswordResetClient.as_view(), name='password_reset')    
         ])),
 
     path('payment/', include([
@@ -37,4 +39,5 @@ urlpatterns = [
     path('admin_panel/', include(router.urls)),
 
     path('webhook/', WebhookView.as_view(), name='webhook'),
+
 ]

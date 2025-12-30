@@ -1,10 +1,8 @@
 from rest_framework import serializers
-from .models import Product, Cart, Client, CartItem, Order, DiscountCupom
+from .models import Product, Cart, Client, CartItem, Order, DiscountCupom, PasswordResetToken
 from rest_framework.authtoken.models import Token
-from .services import validate_coupon, calculate_total_price, get_discount, finalize_preference
+from .services import validate_coupon, calculate_total_price, get_discount, finalize_preference, verify_order_status, validate_password
 from django.core.validators import RegexValidator
-
-
 
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
@@ -72,7 +70,7 @@ class CartSerializer(serializers.ModelSerializer):
         return obj.total_items()
 
 class ClientSerializer(serializers.ModelSerializer):
-    confirm_password = serializers.CharField(max_length=200, write_only=True)
+    confirm_password = serializers.CharField(max_length=150, write_only=True)
     
     class Meta:
         model = Client
@@ -84,10 +82,12 @@ class ClientSerializer(serializers.ModelSerializer):
     def validate(self, data):
         confirm_password = data.get('confirm_password')
         password = data.get('password')
-        if password != confirm_password:
-            raise serializers.ValidationError("Passwords do not match")
+
+        validated_password = validate_password(password, confirm_password)
+        if not validated_password:
+            raise serializers.ValidationError('Passwords do not match')
         return data
-    
+
     def create(self, validated_data):
 
         validated_data.pop('confirm_password')
@@ -106,8 +106,8 @@ class CartItemQuantitySerializer(serializers.Serializer):
         if value < 1:
             raise serializers.ValidationError('Quantity must be at least 1')
         return value
-    
-class OrderSerializer(serializers.ModelSerializer):
+
+class OrderSerializer(serializers.ModelSerializer): 
     coupon_code = serializers.CharField(max_length=10, required=False)
     message = serializers.SerializerMethodField()
 
@@ -126,7 +126,7 @@ class OrderSerializer(serializers.ModelSerializer):
         _, message = validate_coupon(coupon_code, cart)
         return message
     
-    def create(self, validated_data): 
+    def create(self, validated_data):
         user = self.context['request'].user
         cart = self.context.get('cart')
         code = self.context.get('coupon_code')
@@ -162,7 +162,8 @@ class OrderSerializer(serializers.ModelSerializer):
         cart.save()
 
         finalize_preference(preference)
-        
+        verify_order_status(order.status, user.email, order)
+
         return order
     
 class UserOrdersListSerializer(serializers.ModelSerializer):
@@ -190,10 +191,13 @@ class UserOrdersListSerializer(serializers.ModelSerializer):
 class UpdateStatusSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=Order.STATUS_CHOICES)
     
-    def save(self):
+    def save(self, **kwargs):
         order = self.context.get('order')
         order.status = self.validated_data.get('status')
         order.save()
+
+        verify_order_status(order.status, order.user.email, order)
+        
         return order
     
 class PayerSerializer(serializers.Serializer):
@@ -210,3 +214,72 @@ class CouponSerializer(serializers.ModelSerializer):
     class Meta:
         model = DiscountCupom
         fields = '__all__'
+
+class ChangePasswordSerializer(serializers.Serializer):
+    password = serializers.CharField(max_length=150, write_only=True)
+    new_password = serializers.CharField(max_length=150, write_only=True)
+
+    def validate(self, data):
+        user = self.context.get('user')
+        old_password = data.get('password')
+        new_password = data.get('new_password')
+
+        if not user.check_password(old_password):
+            raise serializers.ValidationError('Invalid password')
+        
+        if old_password == new_password:
+            raise serializers.ValidationError("The new password must be different from your current password")
+        return data
+    
+    def save(self, **kwargs):   
+        user = self.context.get('user')
+        new_password = self.validated_data.get('new_password')
+
+        user.set_password(new_password)
+        user.save()
+        return user
+    
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+
+    def validate(self, data):
+        email = data.get('email')
+        try:
+            user = Client.objects.get(email=email)
+        except Client.DoesNotExist:
+            raise serializers.ValidationError('Invalid email or user does not exist')
+        
+        data['user'] = user
+        return data
+    
+    def save(self, **kwargs):
+        user = self.validated_data.get('user')
+        token = PasswordResetToken.objects.create(user=user)
+        return token, user
+
+
+class PasswordResetSerializer(serializers.Serializer):
+    new_password = serializers.CharField(max_length=150, required=True)
+    confirm_new_password = serializers.CharField(max_length=150, required=True)
+    
+    def validate(self, data):
+        new_password = data.get('new_password')
+        confirm_new_password = data.get('confirm_new_password')
+
+        password = validate_password(new_password, confirm_new_password)
+        if not password:
+            raise serializers.ValidationError('Passwords do not match')
+        return data
+    
+    def save(self, **kwargs):
+        new_password = self.validated_data.get('new_password')
+        token = self.context.get('token')
+        user = token.user
+
+        if token.is_expired() or token.used == True:
+            raise serializers.ValidationError('Token is expired or already used')
+        
+        user.set_password(new_password)
+        token.mark_as_used()
+        user.save()
+        token.save()
