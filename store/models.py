@@ -156,7 +156,7 @@ class Order(models.Model):
     
 class MPPreference(models.Model):
 
-    preference_expiration = models.DateTimeField(null=False, blank=False, editable=False    )
+    preference_expiration = models.DateTimeField(null=False, blank=False, editable=False)
     payment_method = models.CharField(max_length=200, default=None, null=True, blank=True, editable=False)
     expired = models.BooleanField(default=False)
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, blank=False, null=False, editable=False)
@@ -164,6 +164,7 @@ class MPPreference(models.Model):
     value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     preference_id = models.CharField(max_length=200, null=True, blank=True, editable=False)
     init_point = models.URLField(max_length=500, null=True, blank=True, editable=False)
+    payer_email = models.EmailField(null=True, blank=True, editable=False)
 
     def is_preference_expired(self):
         if timezone.now() > self.preference_expiration:
@@ -189,4 +190,3 @@ class PasswordResetToken(models.Model):
     def mark_as_used(self):
         self.used = True
         return self.used
-

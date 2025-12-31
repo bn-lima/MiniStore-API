@@ -138,7 +138,7 @@ def mp_create_preference(cart, full_name, cpf, email, coupon_code, request):
         "expiration_date_from": expiration_from.isoformat(),
         "expiration_date_to": expiration_to.isoformat(),
 
-        "external_reference": str(cart.id), #PASSAR O ID DO USUARIO AQUI DEPOIS -============================-=============================================
+        "external_reference": str(cart.id),
 
         "statement_descriptor": "MiniStore",
 
@@ -154,6 +154,7 @@ def mp_create_preference(cart, full_name, cpf, email, coupon_code, request):
         value = total_price,
         preference_id = result['id'],
         init_point = result['init_point'],
+        payer_email = email,
         cart = cart
     )
 
@@ -379,3 +380,13 @@ def validate_reset_token(token_str):
         return None
     
     return token
+
+def send_payment_aproved_email(email, order):
+    order_code = str(order.order_id)[:7]
+
+    email_message = EmailMessage(
+        subject = f"The payment for your order #{order_code} has been approved!",
+        body = f"We'd like to inform you that your payment has been approved! As soon as there are updates regarding your order #{order_code}, you'll be notified.",
+        to = [email]
+    )
+    email_message.send()

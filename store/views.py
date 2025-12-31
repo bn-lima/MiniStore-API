@@ -183,7 +183,7 @@ class WebhookView(APIView):
             payment_status = payment_data['status']
 
             if payment_status == 'approved':
-                cart_id = payment_data['external_reference'] #PEGAR O ID DO USER E BUSCAR UM USER NO BANCO AQUI =================================
+                cart_id = payment_data['external_reference']
                 cart = get_cart_by_id(int(cart_id))
 
                 if not cart or cart.passed_payment_step:

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Product, Cart, Client, CartItem, Order, DiscountCupom, PasswordResetToken
 from rest_framework.authtoken.models import Token
-from .services import validate_coupon, calculate_total_price, get_discount, finalize_preference, verify_order_status, validate_password
+from .services import validate_coupon, calculate_total_price, get_discount, finalize_preference, verify_order_status, validate_password, send_payment_aproved_email
 from django.core.validators import RegexValidator
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -160,6 +160,10 @@ class OrderSerializer(serializers.ModelSerializer):
 
         cart.finalized = True
         cart.save()
+
+        payer_email = preference.payer_email
+
+        send_payment_aproved_email(payer_email, order)
 
         finalize_preference(preference)
         verify_order_status(order.status, user.email, order)
