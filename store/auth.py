@@ -3,7 +3,7 @@ from rest_framework.authtoken.models import Token
 import uuid
 from.models import PasswordResetToken
 from django.core.mail import EmailMessage
-
+    
 def authenticate_client(username, password): 
     user = authenticate(username=username, password=password)
     if user is not None:
