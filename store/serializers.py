@@ -1,8 +1,8 @@
 from rest_framework import serializers
 from .models import Product, Cart, Client, CartItem, Order, DiscountCupom, PasswordResetToken
 from rest_framework.authtoken.models import Token
-from .services import validate_coupon, calculate_total_price, get_discount, finalize_preference, verify_order_status, validate_password, send_payment_aproved_email
-from django.core.validators import RegexValidator
+from .services import validate_coupon, calculate_total_price, get_discount, finalize_preference, verify_order_status, send_payment_aproved_email
+from .auth import validate_password
 
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:

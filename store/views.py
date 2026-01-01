@@ -8,7 +8,8 @@ from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
-from .services import authenticate_client, mp_create_preference, create_payment, get_preference, validate_signature, get_cart_by_id, get_payment_data, get_webhook_headers, get_product_by_id, get_cart_item_by_id, verify_cart_item_quantity, send_reset_email, validate_reset_token
+from .services import mp_create_preference, create_payment, get_preference, validate_signature, get_cart_by_id, get_payment_data, get_webhook_headers, get_product_by_id, get_cart_item_by_id, verify_cart_item_quantity, is_quantity_exceeding_stock, update_cart_item_quantity
+from .auth import authenticate_client, validate_reset_token, send_reset_email
 
 #==STORE==
 
@@ -28,10 +29,12 @@ class ProductDetail(RetrieveAPIView):
     queryset = Product.objects.all()
     lookup_field = 'slug'
 
-class AddToCart(APIView): # Mover essa lógica para o serializer ou services 
-    permission_classes = [permissions.IsAuthenticated]# Rever lógica: um usuário pode adicionar um item no carrinho mesmo que ele esteja sem estoque
+class AddToCart(APIView):
+    permission_classes = [permissions.IsAuthenticated]
         
     def post(self, request, pk, *args, **kwargs,):
+        cart, _= Cart.get_cart(user=request.user)
+
         serializer = CartItemQuantitySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -40,9 +43,7 @@ class AddToCart(APIView): # Mover essa lógica para o serializer ou services
         if not product:
             return Response({"detail": "This product doesn't exist"}, status=status.HTTP_404_NOT_FOUND)
         
-        quantity = serializer.validated_data.get('product_quantity')
-
-        cart, _= Cart.get_cart(user=request.user)
+        quantity = serializer.validated_data.get('product_quantity') 
 
         cart_item, created = CartItem.objects.get_or_create(cart=cart, product=product)
 
@@ -50,15 +51,15 @@ class AddToCart(APIView): # Mover essa lógica para o serializer ou services
 
         if not product.active:
             return Response({"detail": "This product isn't active"}, status=status.HTTP_404_NOT_FOUND)
-        if product.stock < total_quantity:
-            return Response({"detail": "The quantity to add exceeds available stock"},status=status.HTTP_400_BAD_REQUEST)
         
-        cart_item.quantity = total_quantity
-        cart_item.save()
+        if is_quantity_exceeding_stock(product, total_quantity, cart_item):
+            return Response({"detail": "The quantity to add exceeds available stock"},status=status.HTTP_400_BAD_REQUEST)
+
+        update_cart_item_quantity(cart_item, total_quantity)
 
         return Response({'detail': 'Product Added To Cart', 'cart_subtotal': cart_item.subtotal(), 'cart_total': cart.total(), 'total_items': cart.total_items()}, status=status.HTTP_200_OK)
     
-class DeleteCartItem(APIView): # Mover essa lógica para o serializer ou services
+class DeleteCartItem(APIView):
     permission_classes =[permissions.IsAuthenticated]
 
     def delete(self, request, pk, *args, **kwargs):
