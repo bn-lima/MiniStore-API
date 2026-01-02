@@ -9,7 +9,7 @@ import hmac
 import hashlib
 from django.urls import reverse
 from django.core.mail import EmailMessage
-
+from .cart import get_cart_items_unit_price
 
     
 def validate_coupon(cupom_code, cart):
@@ -45,12 +45,6 @@ def get_discount(coupon_code):
     except DiscountCupom.DoesNotExist:
         return None
     return discount
-
-def get_cart_items_unit_price(cart):
-    unit_price = []
-    for item in cart.items.all():
-        unit_price.append(item.product.price)
-    return unit_price
 
 def calculate_item_discount(cart, coupon_code):
     discount_obj = get_discount(coupon_code)
@@ -205,13 +199,6 @@ def get_payment_data(data_id):
 
     return data
 
-def get_cart_by_id(cart_id):
-    try:
-        cart = Cart.objects.get(pk=cart_id)
-    except Cart.DoesNotExist:
-        return None
-    return cart
-
 def get_webhook_headers(request):
     try:
         x_request_id = request.headers['x-request-id']
@@ -231,24 +218,6 @@ def get_product_by_id(product_id):
     except Product.DoesNotExist:
         return None
     return product
-
-def get_cart_item_by_id(cart, cart_item_id):
-    try:
-        cart_item = cart.items.get(product__id=cart_item_id)
-    except CartItem.DoesNotExist:
-        return None                                                   
-    
-    return cart_item
-
-def verify_cart_item_quantity(cart_item, quantity):
-    cart_item.quantity -= quantity
-
-    if cart_item.quantity <= 0:
-        cart_item.delete()
-        return False, None
-    else: 
-        cart_item.save()
-        return True, cart_item.subtotal()
 
 def verify_order_status(status, email, order):
     send_email_message = EmailService(email, order)
@@ -348,16 +317,3 @@ def send_payment_aproved_email(email, order):
     )
     email_message.send()
 
-def is_quantity_exceeding_stock(product, total_quantity, cart_item):
-    if product.stock == 0:
-        cart_item.delete()
-        return True
-
-    if product.stock < total_quantity:
-        return True
-    
-    return False
-    
-def update_cart_item_quantity(cart_item, total_quantity):
-    cart_item.quantity = total_quantity
-    cart_item.save()
