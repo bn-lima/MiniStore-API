@@ -126,7 +126,7 @@ class CreatePreference(APIView):
             return Response({"detail": "You have already paid for these items"}, status=status.HTTP_400_BAD_REQUEST)
         
         if preference:
-            return Response({"detail": "You already have a pending payment"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "You already have a pending payment", "init_point": preference.init_point, "value": preference.value, "paid": preference.paid, "expired": preference.expired}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = PayerSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
