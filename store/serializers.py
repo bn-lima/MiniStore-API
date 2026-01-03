@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Product, Cart, Client, CartItem, Order, DiscountCupom, PasswordResetToken
 from rest_framework.authtoken.models import Token
-from .services import verify_order_status, send_payment_aproved_email
+from .services import verify_order_status
 from .auth import validate_password
 from .coupon import validate_coupon, get_discount, calculate_total_price
 from .payment import finalize_preference
@@ -162,10 +162,6 @@ class OrderSerializer(serializers.ModelSerializer):
 
         cart.finalized = True
         cart.save()
-
-        payer_email = preference.payer_email
-
-        send_payment_aproved_email(payer_email, order)
 
         finalize_preference(preference)
         verify_order_status(order.status, user.email, order)
