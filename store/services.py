@@ -21,19 +21,6 @@ def get_dict_items(cart, request, coupon_code):
             items.append(mp_item)
     return items
 
-def get_webhook_headers(request): #MOVER ESSA DEF PARA UTILS.PY
-    try:
-        x_request_id = request.headers['x-request-id']
-    except KeyError:
-        x_request_id = None
-
-    try:
-        signature_header = request.headers['x-signature']
-    except KeyError:
-        signature_header = None
-
-    return x_request_id, signature_header
-
 def get_product_by_id(product_id):
     try:
         product = Product.objects.get(pk=product_id)

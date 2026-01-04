@@ -8,10 +8,11 @@ from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
-from .services import get_webhook_headers, get_product_by_id
+from .services import get_product_by_id
 from .auth import authenticate_client, validate_reset_token, send_reset_email
 from .cart import get_cart_by_id, get_cart_item_by_id, verify_cart_item_quantity, is_quantity_exceeding_stock, update_cart_item_quantity
 from .payment import mp_create_preference, create_payment, get_preference, validate_signature, get_payment_data
+from .utils import get_webhook_headers
 
 #==STORE==
 
