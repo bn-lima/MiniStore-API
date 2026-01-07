@@ -8,7 +8,7 @@ import uuid
 from datetime import timedelta
 
 
-class DiscountCupom(models.Model):
+class DiscountCoupon(models.Model):
 
     cupom = models.CharField(max_length=10, blank=False)
     discount_percent = models.DecimalField(max_digits=5, blank=False, null=False, decimal_places=2)
@@ -58,11 +58,11 @@ class Product(models.Model):
 
     def calculate_discount(self, cupom_code):
         try:
-            discount = DiscountCupom.objects.get(cupom = cupom_code)
+            discount = DiscountCoupon.objects.get(cupom = cupom_code)
             new_price = discount.apply_discount(self.price)
             return new_price            
 
-        except DiscountCupom.DoesNotExist:
+        except DiscountCoupon.DoesNotExist:
             return self.price
         
     def save(self, *args, **kwargs):
@@ -145,7 +145,7 @@ class Order(models.Model):
     created_at = models.DateTimeField(blank=False, default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
     payment_method = models.CharField(max_length=50, blank=False, null=False)
-    discount_applied = models.ForeignKey(DiscountCupom, on_delete=models.SET_NULL, null=True, blank=True)
+    discount_applied = models.ForeignKey(DiscountCoupon, on_delete=models.SET_NULL, null=True, blank=True)
 
     total_price = models.DecimalField(
         decimal_places=2,

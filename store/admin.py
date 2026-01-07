@@ -1,7 +1,7 @@
 from django.contrib import admin
-from .models import Client, DiscountCupom, Product, Cart, CartItem, Order, MPPreference
+from .models import Client, DiscountCoupon, Product, Cart, CartItem, Order, MPPreference
 
-@admin.register(DiscountCupom)
+@admin.register(DiscountCoupon)
 class DiscountCupomAdmin(admin.ModelAdmin):
     list_display = ('cupom','active','discount_percent','min_purchase')
     search_fields = ('cupom','active','discount_percent','min_purchase')

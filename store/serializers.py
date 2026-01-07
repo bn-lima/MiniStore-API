@@ -1,9 +1,9 @@
 from rest_framework import serializers
-from .models import Product, Cart, Client, CartItem, Order, DiscountCupom, PasswordResetToken
+from .models import Product, Cart, Client, CartItem, Order, DiscountCoupon, PasswordResetToken
 from rest_framework.authtoken.models import Token
 from .services import verify_order_status
 from .auth import validate_password
-from .coupon import validate_coupon, get_discount, calculate_total_price
+from .coupon import validate_and_apply_discount, get_discount, calculate_total_price
 from .payment import finalize_preference
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -29,12 +29,6 @@ class CouponCodeSerializer(serializers.Serializer):
         allow_null=True
     )
 
-    def validate_coupon_code(self, value):
-        if value:
-            if not DiscountCupom.objects.filter(cupom=value, active=True).exists():
-                raise serializers.ValidationError('Invalid or inactive coupon')
-        return value
-
 class CartSerializer(serializers.ModelSerializer):
     total = serializers.SerializerMethodField()
     items = CartItemSerializer(many=True, read_only=True)
@@ -50,19 +44,17 @@ class CartSerializer(serializers.ModelSerializer):
     def get_total(self, obj):
         coupon_code = self.context.get('coupon_code')
         
-        if not coupon_code or coupon_code in ["None", "null"]:
-            return obj.total()
+        discount = get_discount(coupon_code)
         
-        new_total, _ = validate_coupon(coupon_code, obj)
+        new_total, _, _ = validate_and_apply_discount(discount, obj)
         return new_total
         
     def get_coupon_message(self, obj):
         coupon_code = self.context.get('coupon_code')
 
-        if not coupon_code or coupon_code in ["None", "null"]:
-            return None
-        
-        _, message = validate_coupon(coupon_code, obj)
+        discount = get_discount(coupon_code)
+
+        _, message, _ = validate_and_apply_discount(discount, obj)
         return message
     
     def get_coupon_code(self, obj):
@@ -111,21 +103,20 @@ class CartItemQuantitySerializer(serializers.Serializer):
 
 class OrderSerializer(serializers.ModelSerializer): 
     coupon_code = serializers.CharField(max_length=10, required=False)
-    message = serializers.SerializerMethodField()
+    coupon_code_message = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
         fields = '__all__'
         read_only_fields = ('user','cart','status','order_id','created_at','updated_at','discount_applied','total_price', 'payment_method')
 
-    def get_message(self, _):
+    def get_coupon_code_message(self, _):
         coupon_code = self.context.get('coupon_code')
         cart = self.context.get('cart')
 
-        if not coupon_code or coupon_code in ['None', 'null']:
-            return None
-        
-        _, message = validate_coupon(coupon_code, cart)
+        discount = get_discount(coupon_code)
+
+        _, message, _ = validate_and_apply_discount(discount, cart)
         return message
     
     def create(self, validated_data):
@@ -214,7 +205,7 @@ class PayerSerializer(serializers.Serializer):
 
 class CouponSerializer(serializers.ModelSerializer):
     class Meta:
-        model = DiscountCupom
+        model = DiscountCoupon
         fields = '__all__'
 
 class ChangePasswordSerializer(serializers.Serializer):

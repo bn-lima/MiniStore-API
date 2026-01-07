@@ -12,8 +12,8 @@ from datetime import timedelta
 import mercadopago
 
 def mp_create_preference(cart, full_name, cpf, email, coupon_code, request):
-    discount_obj = get_discount(coupon_code)
-    total_price, discount = calculate_total_price(coupon_code, cart, discount_obj)
+    discount = get_discount(coupon_code)
+    total_price, is_discount = calculate_total_price(cart, discount)
 
     sdk = mercadopago.SDK(settings.MERCADO_PAGO_KEY)
 
@@ -57,7 +57,7 @@ def mp_create_preference(cart, full_name, cpf, email, coupon_code, request):
 
         "statement_descriptor": "MiniStore",
 
-        "additional_info": f"Discount: {discount.discount_percent}" if discount else "",
+        "additional_info": f"Discount: {discount.discount_percent}" if is_discount else "",
 
     }
 

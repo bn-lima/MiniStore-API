@@ -1,6 +1,6 @@
 from django.shortcuts import get_object_or_404
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView
-from .models import Product, Cart, Client, CartItem, Order, DiscountCupom
+from .models import Product, Cart, Client, CartItem, Order, DiscountCoupon
 from .serializers import ProductSerializer, CartSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer, PayerSerializer, CouponSerializer
 from rest_framework import permissions, status
 from .pagination import ProductStorePagination, OrderListPagination
@@ -287,7 +287,7 @@ class ProductPanel(ModelViewSet):
 class CouponPanel(ModelViewSet):
     permission_classes = [permissions.IsAdminUser]
     serializer_class = CouponSerializer
-    queryset = DiscountCupom.objects.all()
+    queryset = DiscountCoupon.objects.all()
 
 #AUTH-PASSWORD MANAGEMENT
 
