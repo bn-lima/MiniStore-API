@@ -13,6 +13,7 @@ from .auth import authenticate_client, validate_reset_token, send_reset_email
 from .cart import get_cart_by_id, get_cart_item_by_id, verify_cart_item_quantity, is_quantity_exceeding_stock, update_cart_item_quantity
 from .payment import mp_create_preference, create_payment, get_preference, validate_signature, get_payment_data
 from .utils import get_webhook_headers
+from .coupon import add_coupon_to_cart
 
 #==STORE==
 
@@ -89,26 +90,25 @@ class DeleteCartItem(APIView):
     
 #==PAYMENT==
 
-class Continue_Payment(APIView):
+class ContinueToPayment(APIView):
     permission_classes = [permissions.IsAuthenticated]
     
-    def get(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs):
         cart, _ = Cart.get_cart(user=request.user)
 
-        query_serializer = CouponCodeSerializer(data=request.query_params)
-        query_serializer.is_valid(raise_exception=True)
-
-        coupon_code = query_serializer.validated_data.get('coupon_code')
-
         if not cart.items.exists():
-            return Response({"detail": "You don't have items in your cart"}, status=status.HTTP_404_NOT_FOUND)
-        
-        serializer = CartSerializer(cart, context={'coupon_code': coupon_code})
-        
-        cart.passed_continue_to_payment = True
-        cart.save()
+            return Response({"detail": "You don't have items in your cart"}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response(serializer.data)
+        coupon_serializer = CouponCodeSerializer(data=request.data)
+        coupon_serializer.is_valid(raise_exception=True)
+
+        coupon_code = coupon_serializer.validated_data.get('coupon_code')
+
+        cart_serializer = CartSerializer(cart, context={'coupon_code': coupon_code})
+            
+        add_coupon_to_cart(coupon_code, cart)
+
+        return Response(cart_serializer.data)
 
 class CreatePreference(APIView):
     permission_classes = [permissions.IsAuthenticated]

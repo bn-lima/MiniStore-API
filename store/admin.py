@@ -23,8 +23,8 @@ class CartItemInline(admin.TabularInline):
 
 @admin.register(Cart)
 class CartAdmin(admin.ModelAdmin): 
-    list_display = ('id', 'user', 'created_at', 'total','finalized','show_total_items')
-    search_fields = ('user__username', 'user__email','finalized')
+    list_display = ('id', 'user', 'created_at', 'total','finalized','show_total_items', 'coupon')
+    search_fields = ('user__username', 'user__email','finalized', 'coupon')
     inlines = [CartItemInline]
     readonly_fields = ('total',)
 

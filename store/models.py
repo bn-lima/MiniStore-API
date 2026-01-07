@@ -94,6 +94,8 @@ class Cart(models.Model):
 
     passed_payment_step = models.BooleanField(default=False)
     passed_continue_to_payment = models.BooleanField(default=False)
+
+    coupon = models.ForeignKey(DiscountCoupon, blank=True, null=True, on_delete=models.SET_NULL, default=None)
     
     def total(self):
         return sum(item.subtotal() for item in self.items.all())

@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ProductsStoreView, ProductDetail, RegisterClient, LogoutClient, LoginClient, AddToCart, DeleteCartItem, Continue_Payment, CreateOrder, UpdateOrderStatus, UserOrdersList, CreatePreference, PaymentStatus, WebhookView, ProductPanel, CouponPanel, ChangePasswordClient, PasswordResetRequestClient, PasswordResetClient
+from .views import ProductsStoreView, ProductDetail, RegisterClient, LogoutClient, LoginClient, AddToCart, DeleteCartItem, ContinueToPayment, CreateOrder, UpdateOrderStatus, UserOrdersList, CreatePreference, PaymentStatus, WebhookView, ProductPanel, CouponPanel, ChangePasswordClient, PasswordResetRequestClient, PasswordResetClient
 
 router = DefaultRouter()
 router.register(r'products', ProductPanel, basename='products')
@@ -25,7 +25,7 @@ urlpatterns = [
         ])),
 
     path('payment/', include([
-        path('continue_to_payment/', Continue_Payment.as_view(), name='continue_to_payment'),
+        path('continue_to_payment/', ContinueToPayment.as_view(), name='continue_to_payment'),
         path('create_preference/', CreatePreference.as_view(), name="create_preference"),
         path('payment_status/<str:payment_state>/', PaymentStatus.as_view(), name='payment_status')
         ])),
