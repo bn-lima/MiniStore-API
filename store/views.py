@@ -135,13 +135,8 @@ class CreatePreference(APIView):
         client_full_name = serializer.validated_data.get("client_full_name")
         client_cpf = serializer.validated_data.get("client_cpf")
         client_email = serializer.validated_data.get("client_email")
-        
-        query_serializer = CouponCodeSerializer(data=request.query_params)
-        query_serializer.is_valid(raise_exception=True)
-    
-        coupon_code = query_serializer.validated_data.get("coupon_code")
 
-        response = mp_create_preference(cart, client_full_name, client_cpf, client_email, coupon_code, request)
+        response = mp_create_preference(cart, client_full_name, client_cpf, client_email, request)
 
         return Response({"init_point": response['init_point'], "preference_id": response['id']}) #LINK DE PAGAMENTO REAL DO MERCADO PAGO
 

@@ -11,8 +11,8 @@ from django.conf import settings
 from datetime import timedelta
 import mercadopago
 
-def mp_create_preference(cart, full_name, cpf, email, coupon_code, request):
-    discount = get_discount(coupon_code)
+def mp_create_preference(cart, full_name, cpf, email, request):
+    discount = cart.coupon
     total_price, is_discount = calculate_total_price(cart, discount)
 
     sdk = mercadopago.SDK(settings.MERCADO_PAGO_KEY)
@@ -22,7 +22,7 @@ def mp_create_preference(cart, full_name, cpf, email, coupon_code, request):
         'x-idempotency-key': str(uuid.uuid4())
     }
 
-    items = get_dict_items(cart, request, coupon_code)
+    items = get_dict_items(cart, request, discount)
 
     expiration_from = timezone.now()
     expiration_to = timezone.now() + timedelta(minutes=60)

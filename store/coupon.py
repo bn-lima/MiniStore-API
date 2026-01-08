@@ -36,8 +36,8 @@ def calculate_total_price(cart, discount):
 
     return total_price, is_discount
 
-def calculate_item_discount(cart, coupon_code):
-    discount = get_discount(coupon_code)
+def calculate_item_discount(cart, discount):
+
     _, _, discount_applied = validate_and_apply_discount(discount, cart)
 
     cart_item_subtotal = get_cart_items_unit_price(cart)

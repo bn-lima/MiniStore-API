@@ -2,9 +2,9 @@ from .models import Product
 from .coupon import calculate_item_discount
 from .email_service import EmailService
 
-def get_dict_items(cart, request, coupon_code): 
+def get_dict_items(cart, request, discount): 
     items = []
-    item_price = calculate_item_discount(cart, coupon_code)
+    item_price = calculate_item_discount(cart, discount)
 
     for item, price in zip(cart.items.all(), item_price):
             mp_item = {
