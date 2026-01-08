@@ -32,7 +32,6 @@ def calculate_total_price(cart, discount):
         is_discount = True
     else:
         is_discount = False
-        total_price = cart.total()
 
     return total_price, is_discount
 
