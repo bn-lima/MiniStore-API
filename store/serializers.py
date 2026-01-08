@@ -61,7 +61,11 @@ class CartSerializer(serializers.ModelSerializer):
         return message
     
     def get_coupon_code(self, obj):
-        return self.context.get('coupon_code')
+        coupon_code = self.context.get('coupon_code')
+
+        if not coupon_code:
+            return None
+        return coupon_code
     
     def get_total_items(self, obj):
         return obj.total_items()
