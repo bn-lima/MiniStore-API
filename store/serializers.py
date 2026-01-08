@@ -52,6 +52,9 @@ class CartSerializer(serializers.ModelSerializer):
     def get_coupon_message(self, obj):
         coupon_code = self.context.get('coupon_code')
 
+        if not coupon_code:
+            return None
+
         discount = get_discount(coupon_code)
 
         _, message, _ = validate_and_apply_discount(discount, obj)

@@ -56,10 +56,18 @@ def calculate_item_discount(cart, coupon_code):
 def add_coupon_to_cart(coupon_code, cart):
     discount = get_discount(coupon_code)
 
-    _, _, applied = validate_and_apply_discount(discount, cart)
-    if applied:
-        cart.coupon = discount
+    if not discount:
+        cart.coupon = None
         cart.save()
-        return discount
+        return cart
     
-    return None
+    _, _, applied = validate_and_apply_discount(discount, cart)
+
+    if not applied:
+        cart.coupon = None
+        cart.save()
+        return cart
+    
+    cart.coupon = discount
+    cart.save()
+    return cart
