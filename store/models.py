@@ -15,7 +15,7 @@ class DiscountCoupon(models.Model):
 
     min_purchase = models.DecimalField(max_digits=8,decimal_places=2, null=True, blank=True)
     active = models.BooleanField(default=True)
-    
+    used_by = models.ManyToManyField('Client', blank=True, related_name='used_coupons')
 
     def is_active(self):
         return self.active

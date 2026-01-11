@@ -1,10 +1,11 @@
 from rest_framework import serializers
 from .models import Product, Cart, Client, CartItem, Order, DiscountCoupon, PasswordResetToken
 from rest_framework.authtoken.models import Token
-from .services import verify_order_status
+from .services import verify_order_status, calculate_total_quantity
 from .auth import validate_password
-from .coupon import validate_and_apply_discount, get_discount, calculate_total_price
+from .coupon import validate_and_apply_discount, get_discount, calculate_total_price, mark_coupon_as_used
 from .payment import finalize_preference
+from .cart import get_cart_item
 
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
@@ -109,34 +110,25 @@ class CartItemQuantitySerializer(serializers.Serializer):
         return value
 
 class OrderSerializer(serializers.ModelSerializer): 
-    coupon_code = serializers.CharField(max_length=10, required=False)
-    coupon_code_message = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
         fields = '__all__'
         read_only_fields = ('user','cart','status','order_id','created_at','updated_at','discount_applied','total_price', 'payment_method')
-
-    def get_coupon_code_message(self, _):
-        coupon_code = self.context.get('coupon_code')
-        cart = self.context.get('cart')
-
-        discount = get_discount(coupon_code)
-
-        _, message, _ = validate_and_apply_discount(discount, cart)
-        return message
     
     def create(self, validated_data):
-        user = self.context['request'].user
+        user = self.context.get('user')
         cart = self.context.get('cart')
-        code = self.context.get('coupon_code')
         validated_data.pop('coupon_code', None)
-        
-        discount_obj = get_discount(code)
-
-        _, discount = calculate_total_price(code, cart, discount_obj)
-        
         preference = self.context.get('preference')
+        
+        discount = cart.coupon
+
+        if discount:
+            used_coupon = mark_coupon_as_used(discount, user)
+
+            if not used_coupon:
+                raise serializers.ValidationError('Invalid coupon or already used.')
 
         order = Order.objects.create(
             user=user,
@@ -283,3 +275,59 @@ class PasswordResetSerializer(serializers.Serializer):
         token.mark_as_used()
         user.save()
         token.save()
+
+
+class AddToCartSerializer(serializers.Serializer):
+
+    def validate(self, data):
+        quantity = self.context.get('quantity')
+        cart = self.context.get('cart')
+        product = self.context.get('product')
+
+        total_quantity = calculate_total_quantity(quantity, cart, product)
+
+        if product.stock < total_quantity:
+            raise serializers.ValidationError('The quantity to add exceeds available stock')
+        
+        data['total_quantity'] = total_quantity
+        return data
+        
+    def save(self, **kwags):
+        cart = self.context.get('cart')
+        product = self.context.get('product')
+        total_quantity = self.validated_data.get('total_quantity')
+
+        cart_item = get_cart_item(cart, product)
+
+        if not cart_item:
+            cart_item = CartItem.objects.create(cart=cart, product=product, quantity=total_quantity)
+        else:
+            cart_item.quantity = total_quantity
+            cart_item.save()
+
+        return cart_item
+
+class DeleteCartItemSerializer(serializers.Serializer):
+
+    def validate(self, data):
+        cart_item = self.context.get('cart_item')
+
+        if not cart_item:
+            raise serializers.ValidationError("This product doesn't exist in your cart")
+        
+        data['cart_item'] = cart_item
+        return data
+    
+    def save(self, **kwargs):
+        cart_item = self.validated_data.get('cart_item')
+        quantity = self.context.get('quantity')
+
+        cart_item.quantity -= quantity
+        if cart_item.quantity <= 0:
+            cart_item.delete()
+            return None, None
+
+        cart_item.save()
+        subtotal = cart_item.subtotal()
+        return cart_item, subtotal
+

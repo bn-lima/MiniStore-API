@@ -1,16 +1,16 @@
 from django.shortcuts import get_object_or_404
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView
 from .models import Product, Cart, Client, CartItem, Order, DiscountCoupon
-from .serializers import ProductSerializer, CartSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer, PayerSerializer, CouponSerializer
+from .serializers import ProductSerializer, CartSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer, AddToCartSerializer, DeleteCartItemSerializer, PayerSerializer, CouponSerializer
 from rest_framework import permissions, status
 from .pagination import ProductStorePagination, OrderListPagination
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
-from .services import get_product_by_id
+from .services import get_and_validate_product
 from .auth import authenticate_client, validate_reset_token, send_reset_email
-from .cart import get_cart_by_id, get_cart_item_by_id, verify_cart_item_quantity, is_quantity_exceeding_stock, update_cart_item_quantity
+from .cart import get_cart_by_id, get_cart_item, proceed_to_payment
 from .payment import mp_create_preference, create_payment, get_preference, validate_signature, get_payment_data
 from .utils import get_webhook_headers
 from .coupon import add_coupon_to_cart
@@ -39,54 +39,52 @@ class AddToCart(APIView):
     def post(self, request, pk, *args, **kwargs,):
         cart, _= Cart.get_cart(user=request.user)
 
-        serializer = CartItemQuantitySerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        quantity_serializer = CartItemQuantitySerializer(data=request.data)
+        quantity_serializer.is_valid(raise_exception=True)
 
-        product = get_product_by_id(pk)
+        product = get_and_validate_product(pk)
 
         if not product:
-            return Response({"detail": "This product doesn't exist"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "The product doesn't exist or isn't active"}, status=status.HTTP_404_NOT_FOUND)
         
-        quantity = serializer.validated_data.get('product_quantity') 
+        quantity = quantity_serializer.validated_data.get('product_quantity') 
 
-        cart_item, created = CartItem.objects.get_or_create(cart=cart, product=product)
-
-        total_quantity = quantity if created else quantity + cart_item.quantity
-
-        if not product.active:
-            return Response({"detail": "This product isn't active"}, status=status.HTTP_404_NOT_FOUND)
-        
-        if is_quantity_exceeding_stock(product, total_quantity, cart_item):
-            return Response({"detail": "The quantity to add exceeds available stock"},status=status.HTTP_400_BAD_REQUEST)
-
-        update_cart_item_quantity(cart_item, total_quantity)
+        add_to_cart_serializer = AddToCartSerializer(data={}, context={"quantity": quantity, "cart": cart, "product": product})
+        add_to_cart_serializer.is_valid(raise_exception=True)
+        cart_item = add_to_cart_serializer.save()
 
         return Response({'detail': 'Product Added To Cart', 'cart_subtotal': cart_item.subtotal(), 'cart_total': cart.total(), 'total_items': cart.total_items()}, status=status.HTTP_200_OK)
     
 class DeleteCartItem(APIView):
+
     permission_classes =[permissions.IsAuthenticated]
 
     def delete(self, request, pk, *args, **kwargs):
-        serializer = CartItemQuantitySerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
         cart, _ = Cart.get_cart(user=request.user)
+        product = get_and_validate_product(pk)
 
         if not cart.items.exists():
             return Response({"detail": "Your cart is empty"}, status=status.HTTP_400_BAD_REQUEST)
-            
-        cart_item = get_cart_item_by_id(cart, pk)
-        quantity_to_remove = serializer.validated_data.get('product_quantity')
-
-        if cart_item:
-            valid_quantity, subtotal = verify_cart_item_quantity(cart_item, quantity_to_remove)
-
-            if not valid_quantity:
-                return Response({'detail':  'The product was completely removed from your cart', 'cart_total': cart.total(), 'total_items': cart.total_items()},status=status.HTTP_200_OK)
-            else:
-                return Response({'detail': 'The product quantity has been updated in your cart', 'cart_subtotal': subtotal, 'cart_total': cart.total(), 'total_items': cart.total_items()},status=status.HTTP_200_OK)
         
-        return Response({"detail": "The product doesn't exist in your cart"}, status=status.HTTP_404_NOT_FOUND)
+        if not product:
+            return Response({"error": "The product doesn't exist or isn't active"},status=status.HTTP_400_BAD_REQUEST)
+        
+        quantity_serializer = CartItemQuantitySerializer(data=request.data)
+        quantity_serializer.is_valid(raise_exception=True)
+
+        cart_item = get_cart_item(cart, product)
+            
+        quantity = quantity_serializer.validated_data.get('product_quantity')
+
+        serializer = DeleteCartItemSerializer(data={}, context={'quantity':quantity, 'cart_item': cart_item})
+        serializer.is_valid(raise_exception=True)
+        cart_item, subtotal = serializer.save()
+
+        if not cart_item:
+            return Response({'detail':  'The product was completely removed from your cart', 'cart_total': cart.total(), 'total_items': cart.total_items()},status=status.HTTP_200_OK)
+    
+        return Response({'detail': 'The product quantity has been updated in your cart', 'cart_subtotal': subtotal, 'cart_total': cart.total(), 'total_items': cart.total_items()},status=status.HTTP_200_OK)
+    
     
 #==PAYMENT==
 
@@ -107,6 +105,7 @@ class ContinueToPayment(APIView):
         cart_serializer = CartSerializer(cart, context={'coupon_code': coupon_code})
             
         add_coupon_to_cart(coupon_code, cart)
+        proceed_to_payment(cart)
 
         return Response(cart_serializer.data)
 
@@ -200,7 +199,7 @@ class CreateOrder(APIView):
 
     def post(self, request, *args, **kwargs):
         cart, _ = Cart.get_cart(user=request.user)
-        preference = get_preference(cart)
+        preference = get_preference(cart) #CASO A PREFERENCE EXPIRE, NÃO É POSSÍVEL FINALIZAR O PAGAMENTO (REVER ISSO DEPOIS)
 
         if not cart.items.exists():
             return Response({"detail": "You don't have items in your cart"}, status=status.HTTP_404_NOT_FOUND)
@@ -211,8 +210,7 @@ class CreateOrder(APIView):
         serializer = OrderSerializer(
             data=request.data,
             context={
-                'request': request,
-                'coupon_code': request.data.get('coupon_code'),
+                'user': request.user,
                 'cart': cart,
                 'preference': preference
             })

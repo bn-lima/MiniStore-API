@@ -5,6 +5,7 @@ from .models import Client, DiscountCoupon, Product, Cart, CartItem, Order, MPPr
 class DiscountCupomAdmin(admin.ModelAdmin):
     list_display = ('cupom','active','discount_percent','min_purchase')
     search_fields = ('cupom','active','discount_percent','min_purchase')
+    exclude = ('used_by',)
 
 @admin.register(Client)
 class ClientAdmin(admin.ModelAdmin):

@@ -7,6 +7,9 @@ def validate_and_apply_discount(discount, cart):
     if not discount:
         return total, "Coupon does not exist", False
 
+    if cart.user.used_coupons.filter(id=discount.id).exists():
+        return total, "Coupon code already used", False
+    
     if not discount.is_active():
         return total, "Coupon code is not active", False
     
@@ -32,6 +35,7 @@ def calculate_total_price(cart, discount):
         is_discount = True
     else:
         is_discount = False
+        total_price = cart.total()
 
     return total_price, is_discount
 
@@ -67,6 +71,17 @@ def add_coupon_to_cart(coupon_code, cart):
         cart.save()
         return cart
     
+    if cart.user.used_coupons.filter(id=discount.id).exists():
+        cart.coupon = None
+        cart.save()
+        return cart
+    
     cart.coupon = discount
     cart.save()
     return cart
+
+def mark_coupon_as_used(discount, user):
+    if discount and not user.used_coupons.filter(id=discount.id).exists():
+        user.used_coupons.add(discount)
+        return discount
+    return None
