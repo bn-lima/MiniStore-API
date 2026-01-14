@@ -96,6 +96,8 @@ class Cart(models.Model):
     passed_continue_to_payment = models.BooleanField(default=False)
 
     coupon = models.ForeignKey(DiscountCoupon, blank=True, null=True, on_delete=models.SET_NULL, default=None)
+
+    preference = models. OneToOneField('Mppreference', blank=True, null=True, on_delete=models.SET_NULL, default=None)
     
     def total(self):
         return sum(item.subtotal() for item in self.items.all())
@@ -159,14 +161,13 @@ class Order(models.Model):
 class MPPreference(models.Model):
 
     preference_expiration = models.DateTimeField(null=False, blank=False, editable=False)
-    payment_method = models.CharField(max_length=200, default=None, null=True, blank=True, editable=False)
-    expired = models.BooleanField(default=False)
-    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, blank=False, null=False, editable=False)
-    paid = models.BooleanField(default=False)
-    value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    expired = models.BooleanField(default=False, editable=False)
+    value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, editable=False)
     preference_id = models.CharField(max_length=200, null=True, blank=True, editable=False)
     init_point = models.URLField(max_length=500, null=True, blank=True, editable=False)
     payer_email = models.EmailField(null=True, blank=True, editable=False)
+
+    finalized = models.BooleanField(default=False)
 
     def is_preference_expired(self):
         if timezone.now() > self.preference_expiration:
@@ -174,6 +175,17 @@ class MPPreference(models.Model):
             self.save()
             return True
         return False
+
+class MpPayment(models.Model):
+    user = models.ForeignKey(Client, on_delete=models.CASCADE, blank=False, related_name='payments')
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, blank=False, null=False)
+    payment_id = models.CharField(max_length=200, null=True, blank=True, unique=True)
+    preference = models.ForeignKey(MPPreference, on_delete=models.CASCADE, blank=False, null=False)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, null=False, blank=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    payment_method = models.CharField(max_length=200, null=True, blank=True)
+
+    finalized = models.BooleanField(default=False)
 
 def token_expiration():
     return timezone.now() + timedelta(hours=1)

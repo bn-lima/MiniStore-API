@@ -120,7 +120,7 @@ class OrderSerializer(serializers.ModelSerializer):
         user = self.context.get('user')
         cart = self.context.get('cart')
         validated_data.pop('coupon_code', None)
-        preference = self.context.get('preference')
+        payment = self.context.get('payment')
         
         discount = cart.coupon
 
@@ -134,8 +134,8 @@ class OrderSerializer(serializers.ModelSerializer):
             user=user,
             cart=cart,
             discount_applied=discount if discount else None,
-            total_price=preference.value,
-            payment_method=preference.payment_method,
+            total_price=payment.amount,
+            payment_method=payment.payment_method,
             **validated_data
         )
         
@@ -143,8 +143,8 @@ class OrderSerializer(serializers.ModelSerializer):
             if item.quantity > item.product.stock:
                 raise serializers.ValidationError(f"Not enough stock for {item.product.name}")
             
-            product = item.product
-            product.stock -= item.quantity
+            product = item.product #MOVER ISSO PRA OUTRO ARQUIVO
+            product.stock -= item.quantity#SUBTRAIR DO ESTOQUE QUANDO O PEDIDO FOR PAGO
             if product.stock <= 0:
                 product.stock =0
                 product.active = False
@@ -153,7 +153,9 @@ class OrderSerializer(serializers.ModelSerializer):
         cart.finalized = True
         cart.save()
 
-        finalize_preference(preference)
+        payment.finalized = True
+        payment.save()
+        
         verify_order_status(order.status, user.email, order)
 
         return order

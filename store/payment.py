@@ -1,6 +1,6 @@
 from .coupon import get_discount, calculate_total_price
 from .services import get_dict_items
-from .models import MPPreference
+from .models import MPPreference, MpPayment
 import uuid
 import hmac
 import requests
@@ -11,7 +11,7 @@ from django.conf import settings
 from datetime import timedelta
 import mercadopago
 
-def mp_create_preference(cart, full_name, cpf, email, request):
+def mp_create_preference(cart, full_name, cpf, email, request): #VERIFICAR SE HÁ ESTOQUE DISPONÍVEL ANTES DE CRIAR A PREFERENCE
     discount = cart.coupon
     total_price, is_discount = calculate_total_price(cart, discount)
 
@@ -64,44 +64,55 @@ def mp_create_preference(cart, full_name, cpf, email, request):
     preference = sdk.preference().create(payment_data, request_options)
     result = preference["response"]
     
-    MPPreference.objects.create(
+    mp_preference = MPPreference.objects.create(
         preference_expiration = expiration_to,
         value = total_price,
         preference_id = result['id'],
         init_point = result['init_point'],
-        payer_email = email,
-        cart = cart
+        payer_email = email
     )
+
+    cart.preference = mp_preference
 
     return result
 
 def create_payment(cart, payment_data):
+    preference = cart.preference
 
-    payment_method = payment_data['payment_type_id']
-
-    preference = get_preference(cart)
-
-    preference.payment_method = payment_method
-    preference.save()
+    MpPayment.objects.create(
+        user = cart.user,
+        cart = cart,
+        preference=preference,
+        payment_id=payment_data['id'],
+        amount=payment_data['transaction_amount'],
+        payment_method=payment_data['payment_method_id'],
+    )
 
     cart.passed_payment_step = True
     cart.save()
 
-def get_preference(cart):
-    try:
-        preference = MPPreference.objects.get(cart=cart, expired=False, paid=False)
-    except MPPreference.DoesNotExist:
-        return None
+def get_pending_payment(user):
+    payment = user.payments.filter(finalized=False).first()
 
-    if preference.is_preference_expired():
-        return None
+    if not payment:
+        return None, None
+    return payment, payment.cart
+
+def validate_preference(cart):
+    if not cart.preference:
+        return False
+    if cart.preference.is_preference_expired():
+        return False
+    if cart.preference.finalized:
+        return False
     
-    return preference
+    return True
+    
 
 
 def finalize_preference(preference):
     preference.expired = True
-    preference.paid = True
+    preference.finalized = True
 
     preference.save()
 

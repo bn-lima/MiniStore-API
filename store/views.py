@@ -11,9 +11,11 @@ from rest_framework.viewsets import ModelViewSet
 from .services import get_and_validate_product
 from .auth import authenticate_client, validate_reset_token, send_reset_email
 from .cart import get_cart_by_id, get_cart_item, proceed_to_payment
-from .payment import mp_create_preference, create_payment, get_preference, validate_signature, get_payment_data
+from .payment import mp_create_preference, create_payment, validate_signature, get_payment_data, finalize_preference, validate_preference, get_pending_payment
 from .utils import get_webhook_headers
 from .coupon import add_coupon_to_cart
+
+# UTILIZAR SERIALIZERS NAS RESPOSTAS DA API
 
 #==STORE==
 
@@ -114,7 +116,7 @@ class CreatePreference(APIView):
 
     def post(self, request, *args, **kwargs):
         cart, _ = Cart.get_cart(user=request.user)
-        preference = get_preference(cart)
+        preference = validate_preference(cart)
 
         if not cart.items.exists():
             return Response({"detail": "You do not have any items in your cart"}, status=status.HTTP_400_BAD_REQUEST)
@@ -143,11 +145,11 @@ class PaymentStatus(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, payment_state, *args, **kwargs):
-        cart, _ = Cart.get_cart(user=request.user)
-        preference = get_preference(cart)
+        cart, _ = Cart.get_cart(user=request.user)  
+        preference = cart.preference
 
         if not preference:
-            return Response({"detail": "You do not have a pending payment to verify the status"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "You do not have a pending preference to verify the status"}, status=status.HTTP_400_BAD_REQUEST)
 
         if payment_state not in ["success", "failure", "pending"]:
             return Response({"detail": "Invalid payment status"}, status=status.HTTP_400_BAD_REQUEST)
@@ -188,37 +190,40 @@ class WebhookView(APIView):
                     return Response(status=status.HTTP_200_OK)
                 
                 create_payment(cart, payment_data)
+                finalize_preference(cart.preference)
                 return Response(status=status.HTTP_200_OK)
             
         return Response(status=status.HTTP_200_OK)
 
 #==ORDER==
 
-class CreateOrder(APIView):
+class CreateOrder(APIView): #TRANSFORMAR ISSO NUM GET =====================================
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
-        cart, _ = Cart.get_cart(user=request.user)
-        preference = get_preference(cart) #CASO A PREFERENCE EXPIRE, NÃO É POSSÍVEL FINALIZAR O PAGAMENTO (REVER ISSO DEPOIS)
+        payment, cart = get_pending_payment(request.user)
+        
+        if not payment:
+            return Response({"detail": "You do not have a pending payment"}, status=status.HTTP_400_BAD_REQUEST)
 
         if not cart.items.exists():
-            return Response({"detail": "You don't have items in your cart"}, status=status.HTTP_404_NOT_FOUND)
-        
+            return Response({"detail": "You don't have items in your cart"}, status=status.HTTP_400_BAD_REQUEST)
+
         if not cart.passed_payment_step:
             return Response({"detail": "You must complete the payment before creating an order"}, status=status.HTTP_400_BAD_REQUEST)
         
         serializer = OrderSerializer(
-            data=request.data,
+            data={},
             context={
                 'user': request.user,
                 'cart': cart,
-                'preference': preference
+                'payment': payment
             })
         serializer.is_valid(raise_exception=True)
 
-        order = serializer.save()
+        serializer.save()
 
-        return Response(OrderSerializer(order, context=serializer.context).data, status=status.HTTP_201_CREATED)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
         
 class UserOrdersList(ListAPIView):
     serializer_class = UserOrdersListSerializer
