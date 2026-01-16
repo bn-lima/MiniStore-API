@@ -8,7 +8,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
-from .services import get_and_validate_product
+from .services import get_and_validate_product, decrease_product_stock, reduce_cart_item, check_insufficient_stock, is_item_inactive
 from .auth import authenticate_client, validate_reset_token, send_reset_email
 from .cart import get_cart_by_id, get_cart_item, proceed_to_payment
 from .payment import mp_create_preference, create_payment, validate_signature, get_payment_data, finalize_preference, validate_preference, get_pending_payment
@@ -98,6 +98,21 @@ class ContinueToPayment(APIView):
 
         if not cart.items.exists():
             return Response({"detail": "You don't have items in your cart"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        inactive, product_name = is_item_inactive(cart)
+
+        if inactive:
+            return Response({'detail': f'The item {product_name} is inactive and has been removed from your cart'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        item, product, invalid_stock = check_insufficient_stock(cart)
+
+        if invalid_stock:
+            new_quantity = reduce_cart_item(item, product.stock)
+
+            if not new_quantity:
+                return Response({'detail': f'The item {product.name} is out of stock and has been removed from your cart.'},status=status.HTTP_400_BAD_REQUEST)
+            
+            return Response({'detail': f'Not enough stock for {item.product.name}. We have reduced the quantity for this item', 'new_quantity': new_quantity},status=status.HTTP_400_BAD_REQUEST)
 
         coupon_serializer = CouponCodeSerializer(data=request.data)
         coupon_serializer.is_valid(raise_exception=True)
@@ -121,6 +136,21 @@ class CreatePreference(APIView):
         if not cart.items.exists():
             return Response({"detail": "You do not have any items in your cart"}, status=status.HTTP_400_BAD_REQUEST)
         
+        inactive, product_name = is_item_inactive(cart)
+
+        if inactive:
+            return Response({'detail': f'The item {product_name} is inactive and has been removed from your cart'}, status=status.HTTP_400_BAD_REQUEST)
+
+        item, product, invalid_stock = check_insufficient_stock(cart)
+
+        if invalid_stock:
+            new_quantity = reduce_cart_item(item, product.stock)
+
+            if not new_quantity:
+                return Response({'detail': f'The item {item.product.name} is out of stock and has been removed from your cart.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            return Response({'detail': f'Not enough stock for {item.product.name}. We have reduced the quantity for this item', 'new_quantity': new_quantity}, status=status.HTTP_400_BAD_REQUEST)
+        
         if not cart.passed_continue_to_payment:
             return Response({"detail": "You haven't completed the 'continue to payment' step"}, status=status.HTTP_400_BAD_REQUEST)
         
@@ -128,7 +158,7 @@ class CreatePreference(APIView):
             return Response({"detail": "You have already paid for these items"}, status=status.HTTP_400_BAD_REQUEST)
         
         if preference:
-            return Response({"detail": "You already have a pending payment", "init_point": preference.init_point, "value": preference.value, "paid": preference.paid, "expired": preference.expired}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "You already have a pending payment", "init_point": preference.init_point, "value": preference.value, "expired": preference.expired}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = PayerSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -191,6 +221,7 @@ class WebhookView(APIView):
                 
                 create_payment(cart, payment_data)
                 finalize_preference(cart.preference)
+                decrease_product_stock(cart)
                 return Response(status=status.HTTP_200_OK)
             
         return Response(status=status.HTTP_200_OK)

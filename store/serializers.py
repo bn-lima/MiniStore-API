@@ -3,8 +3,7 @@ from .models import Product, Cart, Client, CartItem, Order, DiscountCoupon, Pass
 from rest_framework.authtoken.models import Token
 from .services import verify_order_status, calculate_total_quantity
 from .auth import validate_password
-from .coupon import validate_and_apply_discount, get_discount, calculate_total_price, mark_coupon_as_used
-from .payment import finalize_preference
+from .coupon import validate_and_apply_discount, get_discount, mark_coupon_as_used
 from .cart import get_cart_item
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -138,17 +137,6 @@ class OrderSerializer(serializers.ModelSerializer):
             payment_method=payment.payment_method,
             **validated_data
         )
-        
-        for item in cart.items.all():
-            if item.quantity > item.product.stock:
-                raise serializers.ValidationError(f"Not enough stock for {item.product.name}")
-            
-            product = item.product #MOVER ISSO PRA OUTRO ARQUIVO
-            product.stock -= item.quantity#SUBTRAIR DO ESTOQUE QUANDO O PEDIDO FOR PAGO
-            if product.stock <= 0:
-                product.stock =0
-                product.active = False
-            product.save()
 
         cart.finalized = True
         cart.save()
