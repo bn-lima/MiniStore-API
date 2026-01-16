@@ -56,9 +56,11 @@ class AddToCart(APIView):
 
         cart_item = add_to_cart_serializer.save()
 
-        response_serializer = CartItemResponseSerializer(cart_item, context={'cart':cart})
 
-        return Response({'detail': 'Product Added To Cart', 'cart_item': response_serializer.data}, status=status.HTTP_200_OK)
+        cart_item_response = CartItemResponseSerializer(cart_item)
+        cart_response = CartResponseSerializer(cart)
+
+        return Response({'detail': 'Product Added To Cart', 'cart': cart_response.data, 'cart_item': cart_item_response.data}, status=status.HTTP_200_OK)
     
 class DeleteCartItem(APIView):
 
