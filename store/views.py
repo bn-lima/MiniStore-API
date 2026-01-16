@@ -1,7 +1,7 @@
 from django.shortcuts import get_object_or_404
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView
 from .models import Product, Cart, Client, CartItem, Order, DiscountCoupon
-from .serializers import ProductSerializer, CartSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer, AddToCartSerializer, DeleteCartItemSerializer, PayerSerializer, CouponSerializer
+from .serializers import ProductSerializer, CartSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer, AddToCartSerializer, DeleteCartItemSerializer, PayerSerializer, CouponSerializer, CartItemResponseSerializer
 from rest_framework import permissions, status
 from .pagination import ProductStorePagination, OrderListPagination
 from rest_framework.authtoken.models import Token
@@ -53,9 +53,12 @@ class AddToCart(APIView):
 
         add_to_cart_serializer = AddToCartSerializer(data={}, context={"quantity": quantity, "cart": cart, "product": product})
         add_to_cart_serializer.is_valid(raise_exception=True)
+
         cart_item = add_to_cart_serializer.save()
 
-        return Response({'detail': 'Product Added To Cart', 'cart_subtotal': cart_item.subtotal(), 'cart_total': cart.total(), 'total_items': cart.total_items()}, status=status.HTTP_200_OK)
+        response_serializer = CartItemResponseSerializer(cart_item, context={'cart':cart})
+
+        return Response({'detail': 'Product Added To Cart', 'cart_item': response_serializer.data}, status=status.HTTP_200_OK)
     
 class DeleteCartItem(APIView):
 
@@ -228,7 +231,7 @@ class WebhookView(APIView):
 
 #==ORDER==
 
-class CreateOrder(APIView): #TRANSFORMAR ISSO NUM GET =====================================
+class CreateOrder(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
