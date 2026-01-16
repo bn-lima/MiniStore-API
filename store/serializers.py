@@ -315,28 +315,33 @@ class DeleteCartItemSerializer(serializers.Serializer):
         cart_item.quantity -= quantity
         if cart_item.quantity <= 0:
             cart_item.delete()
-            return None, None
+            return None
 
         cart_item.save()
-        subtotal = cart_item.subtotal()
-        return cart_item, subtotal
+
+        return cart_item
 
 class CartItemResponseSerializer(serializers.ModelSerializer):
-    total = serializers.SerializerMethodField()
     subtotal = serializers.SerializerMethodField()
-    total_items = serializers.SerializerMethodField()
 
     class Meta:
         model = CartItem
-        fields = ('quantity', 'product', 'total', 'subtotal', 'total_items')
-
-    def get_total(self, obj):
-        cart = self.context.get('cart')
-        return cart.total()
+        fields = ('quantity', 'product', 'subtotal')
     
     def get_subtotal(self, obj):
         return obj.subtotal()
+
+    
+class CartResponseSerializer(serializers.ModelSerializer):
+    total = serializers.SerializerMethodField()
+    total_items = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Cart
+        fields = ('total', 'total_items')
+
+    def get_total(self, obj):
+        return obj.total()
     
     def get_total_items(self, obj):
-        cart = self.context.get('cart')
-        return cart.total_items()
+        return obj.total_items()

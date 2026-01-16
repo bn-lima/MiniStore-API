@@ -1,7 +1,7 @@
 from django.shortcuts import get_object_or_404
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView
 from .models import Product, Cart, Client, CartItem, Order, DiscountCoupon
-from .serializers import ProductSerializer, CartSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer, AddToCartSerializer, DeleteCartItemSerializer, PayerSerializer, CouponSerializer, CartItemResponseSerializer
+from .serializers import ProductSerializer, CartSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer, AddToCartSerializer, DeleteCartItemSerializer, PayerSerializer, CouponSerializer, CartItemResponseSerializer, CartResponseSerializer
 from rest_framework import permissions, status
 from .pagination import ProductStorePagination, OrderListPagination
 from rest_framework.authtoken.models import Token
@@ -83,12 +83,16 @@ class DeleteCartItem(APIView):
 
         serializer = DeleteCartItemSerializer(data={}, context={'quantity':quantity, 'cart_item': cart_item})
         serializer.is_valid(raise_exception=True)
-        cart_item, subtotal = serializer.save()
+        cart_item = serializer.save()
+
+        cart_response = CartResponseSerializer(cart)
 
         if not cart_item:
-            return Response({'detail':  'The product was completely removed from your cart', 'cart_total': cart.total(), 'total_items': cart.total_items()},status=status.HTTP_200_OK)
-    
-        return Response({'detail': 'The product quantity has been updated in your cart', 'cart_subtotal': subtotal, 'cart_total': cart.total(), 'total_items': cart.total_items()},status=status.HTTP_200_OK)
+
+            return Response({'detail':  'The product was completely removed from your cart', 'cart':cart_response.data},status=status.HTTP_200_OK)
+        
+        cart_item_response = CartItemResponseSerializer(cart_item)
+        return Response({'detail': 'The product quantity has been updated in your cart', 'cart': cart_response.data, 'cart_item': cart_item_response.data},status=status.HTTP_200_OK)
     
     
 #==PAYMENT==
