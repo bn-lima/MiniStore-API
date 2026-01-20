@@ -1,7 +1,7 @@
 from django.shortcuts import get_object_or_404
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView
-from .models import Product, Cart, Client, CartItem, Order, DiscountCoupon
-from .serializers import ProductSerializer, CartSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer, AddToCartSerializer, DeleteCartItemSerializer, PayerSerializer, CouponSerializer, CartItemResponseSerializer, CartResponseSerializer
+from .models import Product, Cart, Client, Order, DiscountCoupon
+from .serializers import ProductSerializer, ContinueToPaymentResponseSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer, AddToCartSerializer, DeleteCartItemSerializer, PayerSerializer, CouponSerializer, CartItemResponseSerializer, CartResponseSerializer
 from rest_framework import permissions, status
 from .pagination import ProductStorePagination, OrderListPagination
 from rest_framework.authtoken.models import Token
@@ -13,7 +13,7 @@ from .auth import authenticate_client, validate_reset_token, send_reset_email
 from .cart import get_cart_by_id, get_cart_item, proceed_to_payment
 from .payment import mp_create_preference, create_payment, validate_signature, get_payment_data, finalize_preference, validate_preference, get_pending_payment
 from .utils import get_webhook_headers
-from .coupon import add_coupon_to_cart
+from .coupon import add_coupon_to_cart, get_discount
 
 # UTILIZAR SERIALIZERS NAS RESPOSTAS DA API
 
@@ -128,12 +128,12 @@ class ContinueToPayment(APIView):
 
         coupon_code = coupon_serializer.validated_data.get('coupon_code')
 
-        cart_serializer = CartSerializer(cart, context={'coupon_code': coupon_code})
+        response_serializer = ContinueToPaymentResponseSerializer({'cart':cart, 'coupon': get_discount(coupon_code)}, context={'cart':cart, 'coupon_code': coupon_code})
             
         add_coupon_to_cart(coupon_code, cart)
         proceed_to_payment(cart)
 
-        return Response(cart_serializer.data)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
 
 class CreatePreference(APIView):
     permission_classes = [permissions.IsAuthenticated]

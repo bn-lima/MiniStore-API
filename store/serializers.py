@@ -11,16 +11,6 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = '__all__'
 
-class CartItemSerializer(serializers.ModelSerializer):
-    subtotal = serializers.SerializerMethodField()
-
-    class Meta:
-        model = CartItem
-        fields = '__all__'
-        
-    def get_subtotal(self, obj):
-        return obj.subtotal()
-    
 class CouponCodeSerializer(serializers.Serializer):
     coupon_code = serializers.CharField(
         max_length=10,
@@ -28,47 +18,6 @@ class CouponCodeSerializer(serializers.Serializer):
         allow_blank=True,
         allow_null=True
     )
-
-class CartSerializer(serializers.ModelSerializer):
-    total = serializers.SerializerMethodField()
-    items = CartItemSerializer(many=True, read_only=True)
-    coupon_message = serializers.SerializerMethodField()
-    coupon_code = serializers.SerializerMethodField()
-    total_items = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Cart
-        fields = '__all__'
-        read_only_fields = ('user', 'created_at')
-
-    def get_total(self, obj):
-        coupon_code = self.context.get('coupon_code')
-        
-        discount = get_discount(coupon_code)
-        
-        new_total, _, _ = validate_and_apply_discount(discount, obj)
-        return new_total
-        
-    def get_coupon_message(self, obj):
-        coupon_code = self.context.get('coupon_code')
-
-        if not coupon_code:
-            return None
-
-        discount = get_discount(coupon_code)
-
-        _, message, _ = validate_and_apply_discount(discount, obj)
-        return message
-    
-    def get_coupon_code(self, obj):
-        coupon_code = self.context.get('coupon_code')
-
-        if not coupon_code:
-            return None
-        return coupon_code
-    
-    def get_total_items(self, obj):
-        return obj.total_items()
 
 class ClientSerializer(serializers.ModelSerializer):
     confirm_password = serializers.CharField(max_length=150, write_only=True)
@@ -323,25 +272,74 @@ class DeleteCartItemSerializer(serializers.Serializer):
 
 class CartItemResponseSerializer(serializers.ModelSerializer):
     subtotal = serializers.SerializerMethodField()
+    product_id = serializers.SerializerMethodField()
+    product_name = serializers.SerializerMethodField()
 
     class Meta:
         model = CartItem
-        fields = ('quantity', 'product', 'subtotal')
-    
+        exclude = ('cart', 'product')
+
     def get_subtotal(self, obj):
         return obj.subtotal()
-
     
+    def get_product_id(self, obj):
+        return obj.product.id
+    
+    def get_product_name(self, obj):
+        return obj.product.name
+
 class CartResponseSerializer(serializers.ModelSerializer):
     total = serializers.SerializerMethodField()
     total_items = serializers.SerializerMethodField()
+    items = CartItemResponseSerializer(many=True, read_only=True)
 
     class Meta:
         model = Cart
-        fields = ('total', 'total_items')
+        fields = ('total', 'total_items', 'items')
 
     def get_total(self, obj):
         return obj.total()
     
     def get_total_items(self, obj):
         return obj.total_items()
+    
+    def get_items(self, obj):
+        return obj.items.all()
+    
+class CouponResponseSerializer(serializers.ModelSerializer):
+    coupon_code = serializers.SerializerMethodField()
+    message = serializers.SerializerMethodField()
+    is_coupon_applicable = serializers.SerializerMethodField()
+    discounted_total = serializers.SerializerMethodField()
+    discount_percent = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DiscountCoupon
+        fields = ('discount_percent', 'coupon_code', 'message', 'is_coupon_applicable', 'discounted_total')
+
+    def get_coupon_code(self, obj):
+        return self.context.get('coupon_code')
+    
+    def get_message(self, obj):
+        cart = self.context.get('cart')
+
+        _, message, _ = validate_and_apply_discount(obj, cart)
+        return message
+    
+    def get_is_coupon_applicable(self, obj):
+        cart = self.context.get('cart')
+
+        _, _, applicable = validate_and_apply_discount(obj, cart)
+        return applicable
+    
+    def get_discounted_total(self, obj):
+        cart = self.context.get('cart')
+        price_with_discount, _, _ = validate_and_apply_discount(obj, cart)
+        return price_with_discount
+    
+    def get_discount_percent(self, obj):
+        return int(obj.discount_percent)
+
+class ContinueToPaymentResponseSerializer(serializers.Serializer):
+    coupon = CouponResponseSerializer()
+    cart = CartResponseSerializer()
