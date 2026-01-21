@@ -273,18 +273,6 @@ class UserOrdersList(ListAPIView):
 
     def get_queryset(self):
         return Order.objects.filter(user=self.request.user).order_by('-created_at')
-
-class UpdateOrderStatus(APIView):
-    permission_classes = [permissions.IsAdminUser]
-
-    def patch(self, request, pk, *args, **kwargs):
-        order = get_object_or_404(Order, pk=pk)
-
-        serializer = UpdateStatusSerializer(data=request.data, context={'order': order})
-        serializer.is_valid(raise_exception=True)
-
-        serializer.save()
-        return Response({'status': order.status, 'detail': f"The order status was changed to {order.status} and an email was sent to order's owner"})
     
 #==AUTHENTICATION==
 
@@ -326,6 +314,18 @@ class CouponPanel(ModelViewSet):
     permission_classes = [permissions.IsAdminUser]
     serializer_class = CouponSerializer
     queryset = DiscountCoupon.objects.all()
+
+class UpdateOrderStatus(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def patch(self, request, pk, *args, **kwargs):
+        order = get_object_or_404(Order, pk=pk)
+
+        serializer = UpdateStatusSerializer(order, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+
+        order = serializer.save()
+        return Response({"detail": f"The order status has been updated to {order.status}"}, status=status.HTTP_200_OK)
 
 #AUTH-PASSWORD MANAGEMENT
 

@@ -119,11 +119,15 @@ class UserOrdersListSerializer(serializers.ModelSerializer):
             return f"{obj.discount_applied.discount_percent} %"
         return None
 
-class UpdateStatusSerializer(serializers.Serializer):
+class UpdateStatusSerializer(serializers.ModelSerializer):
     status = serializers.ChoiceField(choices=Order.STATUS_CHOICES)
+
+    class Meta:
+        model = Order
+        fields = ('status',)
     
     def save(self, **kwargs):
-        order = self.context.get('order')
+        order = self.instance
         order.status = self.validated_data.get('status')
         order.save()
 

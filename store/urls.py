@@ -32,11 +32,13 @@ urlpatterns = [
 
     path('order/', include([
         path('create_order/', CreateOrder.as_view(), name='create_order'),
-        path('<int:pk>/update_status/', UpdateOrderStatus.as_view(), name='update_status'),
         path('order_list/', UserOrdersList.as_view(), name='order_list'),   
         ])),
 
-    path('admin_panel/', include(router.urls)),
+    path('admin_panel/', include([
+        path('', include(router.urls)),
+        path('order/<int:pk>/update_status/', UpdateOrderStatus.as_view(), name='update_status')
+    ])),
 
     path('webhook/', WebhookView.as_view(), name='webhook'),
 
