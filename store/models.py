@@ -51,6 +51,7 @@ class Product(models.Model):
     price = models.DecimalField(null=False,blank=False,decimal_places=2,max_digits=8)
     description = models.CharField(max_length=1000, blank=False)
     stock = models.IntegerField(blank=False,null=False)
+    reserved_stock = models.IntegerField(default=0)
     active = models.BooleanField(default=False)
     picture = models.ImageField(upload_to="products/", blank=False, null=False, default='default.jpg')    
 
@@ -118,6 +119,8 @@ class CartItem(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.IntegerField(default=1)
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name="items")
+    
+    is_reserved = models.BooleanField(default=False)
 
     class Meta:
         unique_together = ('cart', 'product')
@@ -170,7 +173,7 @@ class MPPreference(models.Model):
     finalized = models.BooleanField(default=False)
 
     def is_preference_expired(self):
-        if timezone.now() > self.preference_expiration:
+        if timezone.now() >=     self.preference_expiration:
             self.expired = True
             self.save()
             return True

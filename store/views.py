@@ -8,10 +8,10 @@ from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
-from .services import get_and_validate_product, decrease_product_stock, reduce_cart_item, check_insufficient_stock, is_item_inactive
+from .services import get_and_validate_product, decrease_reserved_stock, reduce_cart_item, check_insufficient_stock, is_item_inactive, reserve_product_stock
 from .auth import authenticate_client, validate_reset_token, send_reset_email
 from .cart import get_cart_by_id, get_cart_item, proceed_to_payment
-from .payment import mp_create_preference, create_payment, validate_signature, get_payment_data, finalize_preference, validate_preference, get_pending_payment
+from .payment import mp_create_preference, create_payment, validate_signature, get_payment_data, finalize_preference, has_active_preference, get_pending_payment
 from .utils import get_webhook_headers
 from .coupon import add_coupon_to_cart, get_discount
 
@@ -135,12 +135,12 @@ class ContinueToPayment(APIView):
 
         return Response(response_serializer.data, status=status.HTTP_200_OK)
 
-class CreatePreference(APIView):
+class CreatePreference(APIView): #DEVOLVER SERIALIZER NA RESPOSTA
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
         cart, _ = Cart.get_cart(user=request.user)
-        preference = validate_preference(cart)
+        preference = has_active_preference(cart)
 
         if not cart.items.exists():
             return Response({"detail": "You do not have any items in your cart"}, status=status.HTTP_400_BAD_REQUEST)
@@ -178,7 +178,9 @@ class CreatePreference(APIView):
 
         response = mp_create_preference(cart, client_full_name, client_cpf, client_email, request)
 
-        return Response({"init_point": response['init_point'], "preference_id": response['id']}) #LINK DE PAGAMENTO REAL DO MERCADO PAGO
+        reserve_product_stock(cart)
+
+        return Response({"init_point": response['sandbox_init_point'], "preference_id": response['id']}) #LINK DE TESTE DO MERCADO PAGO
 
 class PaymentStatus(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -230,7 +232,7 @@ class WebhookView(APIView):
                 
                 create_payment(cart, payment_data)
                 finalize_preference(cart.preference)
-                decrease_product_stock(cart)
+                decrease_reserved_stock(cart)
                 return Response(status=status.HTTP_200_OK)
             
         return Response(status=status.HTTP_200_OK)

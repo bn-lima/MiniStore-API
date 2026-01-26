@@ -11,7 +11,7 @@ from django.conf import settings
 from datetime import timedelta
 import mercadopago
 
-def mp_create_preference(cart, full_name, cpf, email, request): #VERIFICAR SE HÁ ESTOQUE DISPONÍVEL ANTES DE CRIAR A PREFERENCE
+def mp_create_preference(cart, full_name, cpf, email, request):
     discount = cart.coupon
     total_price, is_discount = calculate_total_price(cart, discount)
 
@@ -73,6 +73,7 @@ def mp_create_preference(cart, full_name, cpf, email, request): #VERIFICAR SE H�
     )
 
     cart.preference = mp_preference
+    cart.save()
 
     return result
 
@@ -98,20 +99,19 @@ def get_pending_payment(user):
         return None, None
     return payment, payment.cart
 
-def validate_preference(cart):
-    if not cart.preference:
-        return False
-    if cart.preference.is_preference_expired():
-        return False
-    if cart.preference.finalized:
-        return False
-    
-    return True
-    
+def has_active_preference(cart):
+        if not cart.preference:
+            return None
+        if cart.preference.expired:
+            return None
+        if cart.preference.finalized:
+            return None
+        
+        return cart.preference
+        
 
 
 def finalize_preference(preference):
-    preference.expired = True
     preference.finalized = True
 
     preference.save()

@@ -69,24 +69,18 @@ def check_insufficient_stock(cart):
     for item in cart.items.all():
         product = item.product
 
-        if product.stock < item.quantity:
+        if product.stock < item.quantity and not item.is_reserved:
             return item, product, True
         
     return None, None, False
 
-def decrease_product_stock(cart):
+def decrease_reserved_stock(cart):
     for item in cart.items.all():
         product = item.product
 
-        product.stock -= item.quantity
-        if product.stock <= 0:
+        product.reserved_stock -= item.quantity
 
-            product.stock = 0
-            product.active = False
-            product.save()
-            
-        else:
-            product.save()
+        product.save()
 
 def reduce_cart_item(item, stock):
     if stock == 0:
@@ -100,8 +94,37 @@ def reduce_cart_item(item, stock):
 
 def is_item_inactive(cart):
     for item in cart.items.all():
-        if not item.product.active:
+        if not item.product.active and not item.is_reserved:
             item.delete()
             return True, item.product.name
     
     return False, None
+
+def reserve_product_stock(cart):
+    for item in cart.items.all():
+        product = item.product
+
+        product.stock -= item.quantity
+
+        if product.stock == 0:
+            product.active = False
+
+        product.reserved_stock += item.quantity
+        item.is_reserved = True
+
+        item.save()
+        product.save()
+
+def return_product_stock(cart):
+    for item in cart.items.all():
+        product = item.product
+
+        product.stock += item.quantity
+        
+        product.active = True
+
+        product.reserved_stock -= item.quantity
+        item.is_reserved = False
+
+        item.save()
+        product.save()

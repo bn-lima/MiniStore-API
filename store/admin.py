@@ -14,8 +14,8 @@ class ClientAdmin(admin.ModelAdmin):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('name','category','price','stock','active')
-    search_fields = ('name','category','price','stock','active')
+    list_display = ('name','category','price','stock', 'reserved_stock', 'active')
+    search_fields = ('name','category','price','stock','reserved_stock','active')
 
 class CartItemInline(admin.TabularInline): 
         model = CartItem
@@ -40,10 +40,10 @@ class OrderAdmin(admin.ModelAdmin):
 
 @admin.register(MPPreference)
 class MPPreferenceAdmin(admin.ModelAdmin):
-    list_display = ('preference_id','value', 'expired', 'cart', 'init_point')
-    search_fields = ('preference_id','value', 'expired', 'cart')
+    list_display = ('preference_id','value', 'expired', 'finalized', 'cart', 'init_point')
+    search_fields = ('preference_id','value', 'expired', 'cart', 'finalized ')
 
 @admin.register(MpPayment)
 class MppaymentAdmin(admin.ModelAdmin):
-    list_display = ('user','payment_id','preference','amount','created_at','payment_method', 'cart')
-    search_fields = ('user','payment_id','preference','amount','created_at','payment_method', 'cart')
+    list_display = ('user','payment_id','preference','amount','created_at','payment_method', 'cart', 'finalized')
+    search_fields = ('user','payment_id','preference','amount','created_at','payment_method', 'cart', 'finalized')
