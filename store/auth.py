@@ -6,10 +6,12 @@ from django.core.mail import EmailMessage
     
 def authenticate_client(username, password): 
     user = authenticate(username=username, password=password)
-    if user is not None:
+    
+    if user:
         token, _ = Token.objects.get_or_create(user=user)
 
         return token
+    return None
     
 def validate_password(password, confirm_password):
     if password != confirm_password:

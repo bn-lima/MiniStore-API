@@ -5,6 +5,7 @@ from .services import verify_order_status, calculate_total_quantity
 from .auth import validate_password
 from .coupon import validate_and_apply_discount, get_discount, mark_coupon_as_used
 from .cart import get_cart_item
+from .auth import authenticate_client
 
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
@@ -352,3 +353,17 @@ class PreferenceResponseSerializer(serializers.ModelSerializer):
     class Meta:
         model = MPPreference
         fields = ('init_point', 'preference_id', 'expired')
+
+class LoginSerializer(serializers.Serializer):
+    username = serializers.CharField(max_length=150)
+    password = serializers.CharField(max_length=128)
+
+    def validate(self, data):
+        username = data.get('username')
+        password = data.get('password')
+
+        token = authenticate_client(username, password)
+        
+        data['token'] = token
+        
+        return data

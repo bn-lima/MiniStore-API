@@ -1,7 +1,7 @@
 from django.shortcuts import get_object_or_404
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView
 from .models import Product, Cart, Client, Order, DiscountCoupon
-from .serializers import ProductSerializer, ContinueToPaymentResponseSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer, AddToCartSerializer, DeleteCartItemSerializer, PayerSerializer, CouponSerializer, CartItemResponseSerializer, CartResponseSerializer, PreferenceResponseSerializer
+from .serializers import ProductSerializer, ContinueToPaymentResponseSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer, AddToCartSerializer, DeleteCartItemSerializer, PayerSerializer, CouponSerializer, CartItemResponseSerializer, CartResponseSerializer, PreferenceResponseSerializer, LoginSerializer
 from rest_framework import permissions, status
 from .pagination import ProductStorePagination, OrderListPagination
 from rest_framework.authtoken.models import Token
@@ -298,10 +298,11 @@ class LoginClient(APIView):
 
     def post(self, request, *args, **kwargs):
 
-        username = request.data.get('username')
-        password = request.data.get('password')
+        serializer = LoginSerializer(data=request.data)
 
-        token = authenticate_client(username, password)
+        serializer.is_valid(raise_exception=True)
+
+        token = serializer.validated_data.get('token')
 
         if token:
             return Response({'Token': token.key})
