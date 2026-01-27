@@ -2,6 +2,7 @@ from .models import Product, CartItem
 from .coupon import calculate_item_discount
 from .email_service import EmailService
 from .cart import get_cart_item
+from django.db import transaction
 
 def get_dict_items(cart, request, discount): 
     items = []
@@ -74,6 +75,7 @@ def check_insufficient_stock(cart):
         
     return None, None, False
 
+@transaction.atomic()
 def decrease_reserved_stock(cart):
     for item in cart.items.all():
         product = item.product
@@ -100,9 +102,14 @@ def is_item_inactive(cart):
     
     return False, None
 
-def reserve_product_stock(cart):
+@transaction.atomic()
+def reserve_and_check_product_stock(cart):
     for item in cart.items.all():
-        product = item.product
+        
+        product = Product.objects.select_for_update().get(id=item.product.id)
+
+        if product.stock < item.quantity:
+            return False, product.name
 
         product.stock -= item.quantity
 
@@ -114,6 +121,9 @@ def reserve_product_stock(cart):
 
         item.save()
         product.save()
+
+    return True, None
+
 
 def return_product_stock(cart):
     for item in cart.items.all():

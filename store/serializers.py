@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Product, Cart, Client, CartItem, Order, DiscountCoupon, PasswordResetToken
+from .models import Product, Cart, Client, CartItem, Order, DiscountCoupon, PasswordResetToken, MPPreference
 from rest_framework.authtoken.models import Token
 from .services import verify_order_status, calculate_total_quantity
 from .auth import validate_password
@@ -347,3 +347,8 @@ class CouponResponseSerializer(serializers.ModelSerializer):
 class ContinueToPaymentResponseSerializer(serializers.Serializer):
     coupon = CouponResponseSerializer()
     cart = CartResponseSerializer()
+
+class PreferenceResponseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MPPreference
+        fields = ('init_point', 'preference_id', 'expired')

@@ -51,7 +51,7 @@ class Product(models.Model):
     price = models.DecimalField(null=False,blank=False,decimal_places=2,max_digits=8)
     description = models.CharField(max_length=1000, blank=False)
     stock = models.IntegerField(blank=False,null=False)
-    reserved_stock = models.IntegerField(default=0)
+    reserved_stock = models.IntegerField(default=0, blank=True, null= True)
     active = models.BooleanField(default=False)
     picture = models.ImageField(upload_to="products/", blank=False, null=False, default='default.jpg')    
 

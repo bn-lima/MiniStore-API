@@ -68,14 +68,14 @@ def mp_create_preference(cart, full_name, cpf, email, request):
         preference_expiration = expiration_to,
         value = total_price,
         preference_id = result['id'],
-        init_point = result['init_point'],
+        init_point = result['sandbox_init_point'], #LINK DE PAGAMENTO SIMULADO 
         payer_email = email
     )
 
     cart.preference = mp_preference
     cart.save()
 
-    return result
+    return mp_preference
 
 def create_payment(cart, payment_data):
     preference = cart.preference

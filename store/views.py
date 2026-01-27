@@ -1,14 +1,14 @@
 from django.shortcuts import get_object_or_404
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView
 from .models import Product, Cart, Client, Order, DiscountCoupon
-from .serializers import ProductSerializer, ContinueToPaymentResponseSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer, AddToCartSerializer, DeleteCartItemSerializer, PayerSerializer, CouponSerializer, CartItemResponseSerializer, CartResponseSerializer
+from .serializers import ProductSerializer, ContinueToPaymentResponseSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer, AddToCartSerializer, DeleteCartItemSerializer, PayerSerializer, CouponSerializer, CartItemResponseSerializer, CartResponseSerializer, PreferenceResponseSerializer
 from rest_framework import permissions, status
 from .pagination import ProductStorePagination, OrderListPagination
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
-from .services import get_and_validate_product, decrease_reserved_stock, reduce_cart_item, check_insufficient_stock, is_item_inactive, reserve_product_stock
+from .services import get_and_validate_product, decrease_reserved_stock, reduce_cart_item, check_insufficient_stock, is_item_inactive, reserve_and_check_product_stock
 from .auth import authenticate_client, validate_reset_token, send_reset_email
 from .cart import get_cart_by_id, get_cart_item, proceed_to_payment
 from .payment import mp_create_preference, create_payment, validate_signature, get_payment_data, finalize_preference, has_active_preference, get_pending_payment
@@ -135,7 +135,7 @@ class ContinueToPayment(APIView):
 
         return Response(response_serializer.data, status=status.HTTP_200_OK)
 
-class CreatePreference(APIView): #DEVOLVER SERIALIZER NA RESPOSTA
+class CreatePreference(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
@@ -167,20 +167,25 @@ class CreatePreference(APIView): #DEVOLVER SERIALIZER NA RESPOSTA
             return Response({"detail": "You have already paid for these items"}, status=status.HTTP_400_BAD_REQUEST)
         
         if preference:
-            return Response({"detail": "You already have a pending payment", "init_point": preference.init_point, "value": preference.value, "expired": preference.expired}, status=status.HTTP_400_BAD_REQUEST)
+            response = PreferenceResponseSerializer(preference)
+            return Response({"detail": "You already have a pending payment", 'preference': response.data}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = PayerSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
+        valid_reservation, product_name = reserve_and_check_product_stock(cart)
+
+        if not valid_reservation:
+            return Response({"Detail": f"Not enough stock for {item.product.name}"}, status=status.HTTP_400_BAD_REQUEST )
 
         client_full_name = serializer.validated_data.get("client_full_name")
         client_cpf = serializer.validated_data.get("client_cpf")
         client_email = serializer.validated_data.get("client_email")
 
-        response = mp_create_preference(cart, client_full_name, client_cpf, client_email, request)
-
-        reserve_product_stock(cart)
-
-        return Response({"init_point": response['sandbox_init_point'], "preference_id": response['id']}) #LINK DE TESTE DO MERCADO PAGO
+        preference = mp_create_preference(cart, client_full_name, client_cpf, client_email, request)
+    
+        response = PreferenceResponseSerializer(preference)
+        return Response(response.data, status=status.HTTP_200_OK) #LINK DE TESTE DO MERCADO PAGO
 
 class PaymentStatus(APIView):
     permission_classes = [permissions.IsAuthenticated]
