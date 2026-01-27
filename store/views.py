@@ -56,11 +56,9 @@ class AddToCart(APIView):
 
         cart_item = add_to_cart_serializer.save()
 
-
-        cart_item_response = CartItemResponseSerializer(cart_item)
         cart_response = CartResponseSerializer(cart)
 
-        return Response({'detail': 'Product Added To Cart', 'cart': cart_response.data, 'cart_item': cart_item_response.data}, status=status.HTTP_200_OK)
+        return Response({'detail': 'Product Added To Cart', 'cart': cart_response.data}, status=status.HTTP_200_OK)
     
 class DeleteCartItem(APIView):
 
@@ -93,8 +91,7 @@ class DeleteCartItem(APIView):
 
             return Response({'detail':  'The product was completely removed from your cart', 'cart':cart_response.data},status=status.HTTP_200_OK)
         
-        cart_item_response = CartItemResponseSerializer(cart_item)
-        return Response({'detail': 'The product quantity has been updated in your cart', 'cart': cart_response.data, 'cart_item': cart_item_response.data},status=status.HTTP_200_OK)
+        return Response({'detail': 'The product quantity has been updated in your cart', 'cart': cart_response.data},status=status.HTTP_200_OK)
     
     
 #==PAYMENT==
