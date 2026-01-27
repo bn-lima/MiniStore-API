@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ProductsStoreView, ProductDetail, RegisterClient, LogoutClient, LoginClient, AddToCart, DeleteCartItem, ContinueToPayment, OrderView, UpdateOrderStatus, CreatePreference, PaymentStatus, WebhookView, ProductPanel, CouponPanel, ChangePasswordClient, PasswordResetRequestClient, PasswordResetClient
+from .views import ProductsStoreView, ProductDetail, RegisterClient, LogoutClient, LoginClient, CartView, ContinueToPayment, OrderView, UpdateOrderStatus, CreatePreference, PaymentStatus, WebhookView, ProductPanel, CouponPanel, ChangePasswordClient, PasswordResetRequestClient, PasswordResetClient
 
 router = DefaultRouter()
 router.register(r'products', ProductPanel, basename='products')
@@ -12,14 +12,6 @@ urlpatterns = [
     path('product/', include([
         path('<int:pk>/', include([
             path('detail/<slug:slug>/', ProductDetail.as_view(), name='detail'),
-        ]))
-
-        ])),
-
-    path('cart/items/', include([
-        path('<int:pk>/', include([
-            path('add/', AddToCart.as_view(), name='add'),
-            path('remove/', DeleteCartItem.as_view(), name='remove'),
         ]))
 
         ])),
@@ -45,6 +37,8 @@ urlpatterns = [
     ])),
 
     path('order/', OrderView.as_view(), name='order'),
+
+    path('cart/items/<int:pk>/', CartView.as_view(), name='cart'),
 
     path('webhook/', WebhookView.as_view(), name='webhook'),
 

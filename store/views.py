@@ -35,7 +35,7 @@ class ProductDetail(RetrieveAPIView):
     queryset = Product.objects.all()
     lookup_field = 'slug'
 
-class AddToCart(APIView):
+class CartView(APIView):
     permission_classes = [permissions.IsAuthenticated]
         
     def post(self, request, pk, *args, **kwargs,):
@@ -54,15 +54,12 @@ class AddToCart(APIView):
         add_to_cart_serializer = AddToCartSerializer(data={}, context={"quantity": quantity, "cart": cart, "product": product})
         add_to_cart_serializer.is_valid(raise_exception=True)
 
-        cart_item = add_to_cart_serializer.save()
+        add_to_cart_serializer.save()
 
         cart_response = CartResponseSerializer(cart)
 
         return Response({'detail': 'Product Added To Cart', 'cart': cart_response.data}, status=status.HTTP_200_OK)
     
-class DeleteCartItem(APIView):
-
-    permission_classes =[permissions.IsAuthenticated]
 
     def delete(self, request, pk, *args, **kwargs):
         cart, _ = Cart.get_cart(user=request.user)
@@ -92,8 +89,7 @@ class DeleteCartItem(APIView):
             return Response({'detail':  'The product was completely removed from your cart', 'cart':cart_response.data},status=status.HTTP_200_OK)
         
         return Response({'detail': 'The product quantity has been updated in your cart', 'cart': cart_response.data},status=status.HTTP_200_OK)
-    
-    
+ 
 #==PAYMENT==
 
 class ContinueToPayment(APIView):
