@@ -187,23 +187,23 @@ class CreatePreference(APIView):
 class PaymentStatus(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    def get(self, request, payment_state, *args, **kwargs):
+    def get(self, request, state, *args, **kwargs):
         cart, _ = Cart.get_cart(user=request.user)  
         preference = cart.preference
 
         if not preference:
             return Response({"detail": "You do not have a pending preference to verify the status"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if payment_state not in ["success", "failure", "pending"]:
+        if state not in ["success", "failure", "pending"]:
             return Response({"detail": "Invalid payment status"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if payment_state == "success":
+        if state == "success":
             return Response({"detail": "The payment was successful"}, status=status.HTTP_200_OK)
         
-        if payment_state == "failure":
+        if state == "failure":
             return Response({"detail": "The payment has failed"}, status=status.HTTP_400_BAD_REQUEST)
         
-        if payment_state == "pending":
+        if state == "pending":
             return Response({"detail": "The payment is still pending"}, status=status.HTTP_200_OK)
 
 #==WEBHOOK==

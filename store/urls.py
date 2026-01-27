@@ -10,34 +10,43 @@ urlpatterns = [
     path('store/', ProductsStoreView.as_view(), name='store'),
 
     path('product/', include([
-        path('<int:pk>/add_to_cart/', AddToCart.as_view(), name='add_to_cart'),
-        path('<int:pk>/remove_to_cart/', DeleteCartItem.as_view(), name='remove_to_cart'),
-        path('<int:pk>/<slug:slug>/', ProductDetail.as_view(), name='product_detail'),
+        path('<int:pk>/', include([
+            path('detail/<slug:slug>/', ProductDetail.as_view(), name='detail'),
+        ]))
+
+        ])),
+
+    path('cart/items/', include([
+        path('<int:pk>/', include([
+            path('add/', AddToCart.as_view(), name='add'),
+            path('remove/', DeleteCartItem.as_view(), name='remove'),
+        ]))
+
         ])),
 
     path('user/', include([
         path('register/', RegisterClient.as_view(), name='register'),
         path('logout/', LogoutClient.as_view(), name='logout'),
         path('login/', LoginClient.as_view(), name='login'),
-        path('change_password/', ChangePasswordClient.as_view(), name='change_password'),
-        path('password_reset_request/', PasswordResetRequestClient.as_view(), name='password_reset_request'),
-        path('password_reset/', PasswordResetClient.as_view(), name='password_reset')    
+        path('change/', ChangePasswordClient.as_view(), name='change'),
+        path('reset/request/', PasswordResetRequestClient.as_view(), name='reset/request'),
+        path('reset/', PasswordResetClient.as_view(), name='reset')    
         ])),
 
     path('payment/', include([
-        path('continue_to_payment/', ContinueToPayment.as_view(), name='continue_to_payment'),
-        path('create_preference/', CreatePreference.as_view(), name="create_preference"),
-        path('payment_status/<str:payment_state>/', PaymentStatus.as_view(), name='payment_status')
+        path('continue/', ContinueToPayment.as_view(), name='continue'),
+        path('create/', CreatePreference.as_view(), name="create"),
+        path('status/<str:state>', PaymentStatus.as_view(), name='status')
         ])),
 
     path('order/', include([
-        path('create_order/', CreateOrder.as_view(), name='create_order'),
-        path('order_list/', UserOrdersList.as_view(), name='order_list'),   
+        path('create/', CreateOrder.as_view(), name='create'),
+        path('list/', UserOrdersList.as_view(), name='list'),   
         ])),
 
-    path('admin_panel/', include([
+    path('admin/panel/', include([
         path('', include(router.urls)),
-        path('order/<int:pk>/update_status/', UpdateOrderStatus.as_view(), name='update_status')
+        path('order/<int:pk>/status/update/', UpdateOrderStatus.as_view(), name='update')
     ])),
 
     path('webhook/', WebhookView.as_view(), name='webhook'),
