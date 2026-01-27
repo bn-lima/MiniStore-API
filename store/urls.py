@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ProductsStoreView, ProductDetail, RegisterClient, LogoutClient, LoginClient, AddToCart, DeleteCartItem, ContinueToPayment, CreateOrder, UpdateOrderStatus, UserOrdersList, CreatePreference, PaymentStatus, WebhookView, ProductPanel, CouponPanel, ChangePasswordClient, PasswordResetRequestClient, PasswordResetClient
+from .views import ProductsStoreView, ProductDetail, RegisterClient, LogoutClient, LoginClient, AddToCart, DeleteCartItem, ContinueToPayment, OrderView, UpdateOrderStatus, CreatePreference, PaymentStatus, WebhookView, ProductPanel, CouponPanel, ChangePasswordClient, PasswordResetRequestClient, PasswordResetClient
 
 router = DefaultRouter()
 router.register(r'products', ProductPanel, basename='products')
@@ -39,15 +39,12 @@ urlpatterns = [
         path('status/<str:state>', PaymentStatus.as_view(), name='status')
         ])),
 
-    path('order/', include([
-        path('create/', CreateOrder.as_view(), name='create'),
-        path('list/', UserOrdersList.as_view(), name='list'),   
-        ])),
-
     path('admin/panel/', include([
         path('', include(router.urls)),
         path('order/<int:pk>/status/update/', UpdateOrderStatus.as_view(), name='update')
     ])),
+
+    path('order/', OrderView.as_view(), name='order'),
 
     path('webhook/', WebhookView.as_view(), name='webhook'),
 

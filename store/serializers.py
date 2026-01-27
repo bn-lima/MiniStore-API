@@ -367,3 +367,8 @@ class LoginSerializer(serializers.Serializer):
         data['token'] = token
         
         return data
+    
+class OrderUserListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        exclude  = ('user',)
