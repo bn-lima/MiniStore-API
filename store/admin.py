@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Client, DiscountCoupon, Product, Cart, CartItem, Order, MPPreference, MpPayment
+from .models import Client, DiscountCoupon, Product, Cart, CartItem, Order, MPPreference, MpPayment, SupportChannel, SupportMessage
 
 @admin.register(DiscountCoupon)
 class DiscountCupomAdmin(admin.ModelAdmin):
@@ -47,3 +47,15 @@ class MPPreferenceAdmin(admin.ModelAdmin):
 class MppaymentAdmin(admin.ModelAdmin):
     list_display = ('user','payment_id','preference','amount','created_at','payment_method', 'cart', 'finalized')
     search_fields = ('user','payment_id','preference','amount','created_at','payment_method', 'cart', 'finalized')
+
+class SupportMessageInline(admin.TabularInline):
+     model = SupportMessage
+     extra = 1
+     fields = ('message', 'date', 'user')
+     readonly_fields = ('date', 'user')
+
+@admin.register(SupportChannel)
+class SupportChannelAdmin(admin.ModelAdmin):
+     list_display = ('active', 'user')
+     search_fields = ('active', 'user')
+     inlines = [SupportMessageInline]

@@ -1,15 +1,15 @@
 from django.shortcuts import get_object_or_404
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView
-from .models import Product, Cart, Client, Order, DiscountCoupon
-from .serializers import ProductSerializer, ContinueToPaymentResponseSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer, AddToCartSerializer, DeleteCartItemSerializer, PayerSerializer, CouponSerializer, CartItemResponseSerializer, CartResponseSerializer, PreferenceResponseSerializer, LoginSerializer, OrderUserListSerializer
+from .models import Product, Cart, Client, Order, DiscountCoupon, SupportMessage, SupportChannel
+from .serializers import ProductSerializer, ContinueToPaymentResponseSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer, AddToCartSerializer, DeleteCartItemSerializer, PayerSerializer, CouponSerializer, CartItemResponseSerializer, CartResponseSerializer, PreferenceResponseSerializer, LoginSerializer, OrderUserListSerializer, SupportChannelSerializer, SendSupportMessageSerializer
 from rest_framework import permissions, status
 from .pagination import ProductStorePagination, OrderListPagination
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
-from .services import get_and_validate_product, decrease_reserved_stock, reduce_cart_item, check_insufficient_stock, is_item_inactive, reserve_and_check_product_stock
-from .auth import authenticate_client, validate_reset_token, send_reset_email
+from .services import get_and_validate_product, decrease_reserved_stock, reduce_cart_item, check_insufficient_stock, is_item_inactive, reserve_and_check_product_stock, get_support_channel
+from .auth import validate_reset_token, send_reset_email
 from .cart import get_cart_by_id, get_cart_item, proceed_to_payment
 from .payment import mp_create_preference, create_payment, validate_signature, get_payment_data, finalize_preference, has_active_preference, get_pending_payment
 from .utils import get_webhook_headers
@@ -265,7 +265,7 @@ class OrderView(APIView):
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
-    def get(self, request, *args, **kwargs):
+    def get(self, request, *args, **kwargs): # ADICIONAR PAGINAÇÃO AQUI
         query = Order.objects.filter(user=request.user)
         serializer = OrderUserListSerializer(query, many=True)
 
@@ -364,3 +364,30 @@ class PasswordResetClient(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response({'detail': 'Your password has been changed successfully'},status=status.HTTP_200_OK)
+
+# SUPPORT
+
+class RequestSupport(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        channel, _ = SupportChannel.objects.get_or_create(active=True, user=request.user)
+        serializer = SupportChannelSerializer(channel)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class SendSupportMessage(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        channel = get_support_channel(request.user)
+
+        if not channel:
+            return Response({"detail": "You do not have an actice support channel"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        serializer = SendSupportMessageSerializer(data=request.data, context={"channel":channel, "user":request.user})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        response_serializer = SupportChannelSerializer(channel)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)

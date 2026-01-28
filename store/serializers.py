@@ -1,9 +1,9 @@
 from rest_framework import serializers
-from .models import Product, Cart, Client, CartItem, Order, DiscountCoupon, PasswordResetToken, MPPreference
+from .models import Product, Cart, Client, CartItem, Order, DiscountCoupon, PasswordResetToken, MPPreference, SupportChannel, SupportMessage
 from rest_framework.authtoken.models import Token
 from .services import verify_order_status, calculate_total_quantity
 from .auth import validate_password
-from .coupon import validate_and_apply_discount, get_discount, mark_coupon_as_used
+from .coupon import validate_and_apply_discount, mark_coupon_as_used
 from .cart import get_cart_item
 from .auth import authenticate_client
 
@@ -372,3 +372,31 @@ class OrderUserListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         exclude  = ('user',)
+
+class ShowSupportMessagesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SupportMessage
+        exclude = ('channel',)
+
+class SupportChannelSerializer(serializers.ModelSerializer):
+    messages = ShowSupportMessagesSerializer(many=True, read_only=True)
+    class Meta:
+        model = SupportChannel
+        fields = ('messages',)
+
+class SendSupportMessageSerializer(serializers.ModelSerializer):
+    message = serializers.CharField(max_length=5000)
+    
+    class Meta:
+        model = SupportMessage
+        exclude = ('channel', 'user')
+
+    def save(self, **kwargs):
+        channel = self.context.get('channel')
+        user = self.context.get('user')
+
+        return SupportMessage.objects.create(
+            channel=channel,
+            user=user,
+            message=self.validated_data.get('message')
+        )

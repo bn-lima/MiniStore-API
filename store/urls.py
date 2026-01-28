@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ProductsStoreView, ProductDetail, RegisterClient, LogoutClient, LoginClient, CartView, ContinueToPayment, OrderView, UpdateOrderStatus, CreatePreference, PaymentStatus, WebhookView, ProductPanel, CouponPanel, ChangePasswordClient, PasswordResetRequestClient, PasswordResetClient
+from .views import ProductsStoreView, ProductDetail, RegisterClient, LogoutClient, LoginClient, CartView, ContinueToPayment, OrderView, UpdateOrderStatus, CreatePreference, PaymentStatus, WebhookView, ProductPanel, CouponPanel, ChangePasswordClient, PasswordResetRequestClient, PasswordResetClient, RequestSupport, SendSupportMessage
 
 router = DefaultRouter()
 router.register(r'products', ProductPanel, basename='products')
@@ -28,12 +28,17 @@ urlpatterns = [
     path('payment/', include([
         path('continue/', ContinueToPayment.as_view(), name='continue'),
         path('create/', CreatePreference.as_view(), name="create"),
-        path('status/<str:state>', PaymentStatus.as_view(), name='status')
+        path('status/<str:state>/', PaymentStatus.as_view(), name='status')
         ])),
 
     path('admin/panel/', include([
         path('', include(router.urls)),
         path('order/<int:pk>/status/update/', UpdateOrderStatus.as_view(), name='update')
+    ])),
+
+    path('support/', include([
+        path('request/', RequestSupport.as_view(), name='request'),
+        path('send/', SendSupportMessage.as_view(), name='send')
     ])),
 
     path('order/', OrderView.as_view(), name='order'),
