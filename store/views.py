@@ -1,14 +1,14 @@
 from django.shortcuts import get_object_or_404
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView
 from .models import Product, Cart, Client, Order, DiscountCoupon, SupportMessage, SupportChannel
-from .serializers import ProductSerializer, ContinueToPaymentResponseSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer, AddToCartSerializer, DeleteCartItemSerializer, PayerSerializer, CouponSerializer, CartItemResponseSerializer, CartResponseSerializer, PreferenceResponseSerializer, LoginSerializer, OrderUserListSerializer, SupportChannelSerializer, SendSupportMessageSerializer
+from .serializers import ProductSerializer, ContinueToPaymentResponseSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer, AddToCartSerializer, DeleteCartItemSerializer, PayerSerializer, CouponSerializer, CartItemResponseSerializer, CartResponseSerializer, PreferenceResponseSerializer, LoginSerializer, OrderUserListSerializer, SupportChannelSerializer, SendSupportMessageSerializer, SupportRequestsSerializer
 from rest_framework import permissions, status
 from .pagination import ProductStorePagination, OrderListPagination
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
-from .services import get_and_validate_product, decrease_reserved_stock, reduce_cart_item, check_insufficient_stock, is_item_inactive, reserve_and_check_product_stock, get_support_channel
+from .services import get_and_validate_product, decrease_reserved_stock, reduce_cart_item, check_insufficient_stock, is_item_inactive, reserve_and_check_product_stock, get_support_channel, get_support_channel_by_id
 from .auth import validate_reset_token, send_reset_email
 from .cart import get_cart_by_id, get_cart_item, proceed_to_payment
 from .payment import mp_create_preference, create_payment, validate_signature, get_payment_data, finalize_preference, has_active_preference, get_pending_payment
@@ -301,7 +301,7 @@ class LoginClient(APIView):
             return Response({'Token': token.key})
         return Response({'detail': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
     
-#ADMIN-PANEL
+#CONTROL-PANEL
 
 class ProductPanel(ModelViewSet):
     permission_classes = [permissions.IsAdminUser]
@@ -324,6 +324,29 @@ class UpdateOrderStatus(APIView):
 
         order = serializer.save()
         return Response({"detail": f"The order status has been updated to {order.status}"}, status=status.HTTP_200_OK)
+    
+class SupportRequests(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def get(self, request, *args, **kwargs):
+        query = SupportChannel.objects.filter(active=True)
+
+        serializer = SupportRequestsSerializer(query, many=True)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    def post(self, request, pk, *args, **kwargws):
+        channel = get_support_channel_by_id(pk)
+
+        if not channel:
+            return Response({"detail": "Channel not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = SendSupportMessageSerializer(data=request.data, context={'user': request.user, 'channel': channel})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        response_serializer = SupportChannelSerializer(channel)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
 
 #AUTH-PASSWORD MANAGEMENT
 

@@ -145,3 +145,10 @@ def get_support_channel(user):
     except SupportChannel.DoesNotExist:
         return None
     return channel
+
+def get_support_channel_by_id(id):
+    try:
+        channel = SupportChannel.objects.get(id=id)
+    except SupportChannel.DoesNotExist:
+        return None
+    return channel

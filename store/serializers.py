@@ -400,3 +400,9 @@ class SendSupportMessageSerializer(serializers.ModelSerializer):
             user=user,
             message=self.validated_data.get('message')
         )
+    
+class SupportRequestsSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = SupportChannel
+        fields = '__all__'
