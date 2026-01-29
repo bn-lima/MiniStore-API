@@ -100,14 +100,14 @@ def get_pending_payment(user):
     return payment, payment.cart
 
 def has_active_preference(cart):
-        if not cart.preference:
-            return None
-        if cart.preference.expired:
-            return None
-        if cart.preference.finalized:
-            return None
-        
-        return cart.preference
+    if not cart.preference:
+        return None
+    if cart.preference.expired:
+        return None
+    if cart.preference.finalized:
+        return None
+    
+    return cart.preference
         
 
 

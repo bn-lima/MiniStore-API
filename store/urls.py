@@ -10,9 +10,7 @@ urlpatterns = [
     path('store/', ProductsStoreView.as_view(), name='store'),
 
     path('product/', include([
-        path('<int:pk>/', include([
             path('detail/<slug:slug>/', ProductDetail.as_view(), name='detail'),
-        ]))
 
         ])),
 
@@ -22,7 +20,7 @@ urlpatterns = [
         path('login/', LoginClient.as_view(), name='login'),
         path('change/', ChangePasswordClient.as_view(), name='change'),
         path('reset/request/', PasswordResetRequestClient.as_view(), name='reset/request'),
-        path('reset/', PasswordResetClient.as_view(), name='reset')    
+        path('reset/', PasswordResetClient.as_view(), name='reset',)    
         ])),
 
     path('payment/', include([

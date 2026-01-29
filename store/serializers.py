@@ -6,7 +6,7 @@ from .auth import validate_password
 from .coupon import validate_and_apply_discount, mark_coupon_as_used
 from .cart import get_cart_item
 from .auth import authenticate_client
-
+from store.constants import OrderStatus
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
@@ -121,7 +121,7 @@ class UserOrdersListSerializer(serializers.ModelSerializer):
         return None
 
 class UpdateStatusSerializer(serializers.ModelSerializer):
-    status = serializers.ChoiceField(choices=Order.STATUS_CHOICES)
+    status = serializers.ChoiceField(choices=OrderStatus.choices())
 
     class Meta:
         model = Order

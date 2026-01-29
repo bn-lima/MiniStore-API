@@ -1,19 +1,19 @@
 from django.db import models
-from django.core.validators import RegexValidator
 from django.contrib.auth.models import AbstractUser
 from django.utils.text import slugify
 from django.utils import timezone
 from django.db.models import Sum
 import uuid
 from datetime import timedelta
-
+from store.constants import ProductCategory, OrderStatus
+from store.validators import NUMERIC_VALIDATOR
 
 class DiscountCoupon(models.Model):
 
     cupom = models.CharField(max_length=10, blank=False)
-    discount_percent = models.DecimalField(max_digits=5, blank=False, null=False, decimal_places=2)
+    discount_percent = models.DecimalField(max_digits=5, default=0, decimal_places=2)
 
-    min_purchase = models.DecimalField(max_digits=8,decimal_places=2, null=True, blank=True)
+    min_purchase = models.DecimalField(max_digits=8,decimal_places=2, default=0)
     active = models.BooleanField(default=True)
     used_by = models.ManyToManyField('Client', blank=True, related_name='used_coupons')
 
@@ -37,34 +37,26 @@ class DiscountCoupon(models.Model):
 
 class Product(models.Model):
 
-    CATEGORY_CHOICES = [
-    ("Electronics", "Electronics"),
-    ("Clothing", "Clothing"),
-    ("Footwear", "Footwear"),
-    ("Home & Kitchen", "Home & Kitchen"),
-    ("Books", "Books"),
-    ("Toys & Games", "Toys & Games"),
-]
 
     name = models.CharField(max_length=200, blank=False)
-    category = models.CharField(max_length=50,choices=CATEGORY_CHOICES, blank=False)
-    price = models.DecimalField(null=False,blank=False,decimal_places=2,max_digits=8)
-    description = models.CharField(max_length=1000, blank=False)
-    stock = models.IntegerField(blank=False,null=False)
-    reserved_stock = models.IntegerField(default=0, blank=True, null= True)
+    category = models.CharField(max_length=50,choices=ProductCategory.choices(), blank=False)
+    price = models.DecimalField(decimal_places=2,max_digits=8, default=0)
+    description = models.TextField()
+    stock = models.IntegerField(default=0)
+    reserved_stock = models.IntegerField(default=0)
     active = models.BooleanField(default=False)
-    picture = models.ImageField(upload_to="products/", blank=False, null=False, default='default.jpg')    
+    picture = models.ImageField(upload_to="products/", blank=False, null=False, default='default.jpg', )    
 
-    slug = models.SlugField(max_length=255, unique=True, blank=True)
+    slug = models.SlugField(max_length=255, unique=True)
 
     def calculate_discount(self, cupom_code):
         try:
             discount = DiscountCoupon.objects.get(cupom = cupom_code)
-            new_price = discount.apply_discount(self.price)
-            return new_price            
-
         except DiscountCoupon.DoesNotExist:
             return self.price
+        
+        new_price = discount.apply_discount(self.price)
+        return new_price            
         
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -76,15 +68,12 @@ class Product(models.Model):
         
 
 
-numeric_validator = RegexValidator(r'^\d{11}$', 'Enter exactly 11 numbers')
-
-
 
 class Client(AbstractUser):
-    cpf = models.CharField(max_length=11, validators=[numeric_validator], blank=False, unique=True)
-    location = models.CharField(max_length=200, blank=False)
-    phone = models.CharField(max_length=11, validators=[numeric_validator], blank=False)
-    email = models.EmailField(unique=True, blank=False)
+    cpf = models.CharField(max_length=11, validators=[NUMERIC_VALIDATOR], unique=True)
+    location = models.CharField(max_length=200)
+    phone = models.CharField(max_length=11, validators=[NUMERIC_VALIDATOR])
+    email = models.EmailField(unique=True)
 
 
 class Cart(models.Model):
@@ -96,9 +85,9 @@ class Cart(models.Model):
     passed_payment_step = models.BooleanField(default=False)
     passed_continue_to_payment = models.BooleanField(default=False)
 
-    coupon = models.ForeignKey(DiscountCoupon, blank=True, null=True, on_delete=models.SET_NULL, default=None)
+    coupon = models.ForeignKey(DiscountCoupon, blank=True, null=True, on_delete=models.SET_NULL)
 
-    preference = models. OneToOneField('Mppreference', blank=True, null=True, on_delete=models.SET_NULL, default=None)
+    preference = models. OneToOneField('Mppreference', blank=True, null=True, on_delete=models.SET_NULL)
     
     def total(self):
         return sum(item.subtotal() for item in self.items.all())
@@ -124,6 +113,7 @@ class CartItem(models.Model):
 
     class Meta:
         unique_together = ('cart', 'product')
+       
 
     def subtotal(self):
         return self.product.price * self.quantity
@@ -134,38 +124,26 @@ class CartItem(models.Model):
 
 class Order(models.Model):
 
-    STATUS_CHOICES = [
-        ("pending", "Pending"),
-        ("paid", "Paid"), 
-        ("processing", "Processing"),
-        ("shipped", "Shipped"),
-        ("out_for_delivery", "Out for delivery"),
-        ("delivered", "Delivered"),
-        ("cancelled", "Cancelled"),
-        ("refunded", "Refunded"),
-    ]
-
     user = models.ForeignKey(Client, on_delete=models.CASCADE)
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE)
-    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='pending')
-    order_id = models.UUIDField(blank=False, default=uuid.uuid4, editable=False, unique=True)
-    created_at = models.DateTimeField(blank=False, default=timezone.now)
+    status = models.CharField(max_length=18, choices=OrderStatus.choices(), default=OrderStatus.PENDING.value)
+    order_id = models.UUIDField( default=uuid.uuid4, editable=False, unique=True)
+    created_at = models.DateTimeField( default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
     payment_method = models.CharField(max_length=50, blank=False, null=False)
     discount_applied = models.ForeignKey(DiscountCoupon, on_delete=models.SET_NULL, null=True, blank=True)
 
     total_price = models.DecimalField(
         decimal_places=2,
-        null=True,
         max_digits=10,
-        blank=True,
+        default=0
         )
     
 class MPPreference(models.Model):
 
-    preference_expiration = models.DateTimeField(null=False, blank=False, editable=False)
+    preference_expiration = models.DateTimeField(editable=False)
     expired = models.BooleanField(default=False, editable=False)
-    value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, editable=False)
+    value = models.DecimalField(max_digits=10, decimal_places=2, default=0, editable=False)
     preference_id = models.CharField(max_length=200, null=True, blank=True, editable=False)
     init_point = models.URLField(max_length=500, null=True, blank=True, editable=False)
     payer_email = models.EmailField(null=True, blank=True, editable=False)
