@@ -87,7 +87,7 @@ class Cart(models.Model):
 
     coupon = models.ForeignKey(DiscountCoupon, blank=True, null=True, on_delete=models.SET_NULL)
 
-    preference = models. OneToOneField('Mppreference', blank=True, null=True, on_delete=models.SET_NULL)
+    preference = models.OneToOneField('Mppreference', blank=True, null=True, on_delete=models.SET_NULL)
     
     def total(self):
         return sum(item.subtotal() for item in self.items.all())
@@ -198,6 +198,7 @@ class SupportMessage(models.Model):
 class SupportChannel(models.Model):
     user = models.ForeignKey(Client, on_delete=models.CASCADE, null=False, blank=False)
     active = models.BooleanField(default=True)
+    in_progress = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.user.username}"

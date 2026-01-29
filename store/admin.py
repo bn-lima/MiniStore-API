@@ -56,6 +56,6 @@ class SupportMessageInline(admin.TabularInline):
 
 @admin.register(SupportChannel)
 class SupportChannelAdmin(admin.ModelAdmin):
-     list_display = ('active', 'user')
-     search_fields = ('active', 'user')
+     list_display = ('active', 'user', 'in_progress')
+     search_fields = ('active', 'user', 'in_progress')
      inlines = [SupportMessageInline]

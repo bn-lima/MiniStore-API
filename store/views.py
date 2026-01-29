@@ -1,7 +1,7 @@
 from django.shortcuts import get_object_or_404
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView
-from .models import Product, Cart, Client, Order, DiscountCoupon, SupportMessage, SupportChannel
-from .serializers import ProductSerializer, ContinueToPaymentResponseSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer, AddToCartSerializer, DeleteCartItemSerializer, PayerSerializer, CouponSerializer, CartItemResponseSerializer, CartResponseSerializer, PreferenceResponseSerializer, LoginSerializer, OrderUserListSerializer, SupportChannelSerializer, SendSupportMessageSerializer, SupportRequestsSerializer
+from .models import Product, Cart, Client, Order, DiscountCoupon, SupportChannel
+from .serializers import ProductSerializer, ContinueToPaymentResponseSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer, AddToCartSerializer, DeleteCartItemSerializer, PayerSerializer, CouponSerializer, CartItemResponseSerializer, CartResponseSerializer, PreferenceResponseSerializer, LoginSerializer, OrderUserListSerializer, SupportChannelSerializer, SendSupportMessageSerializer, SupportRequestsSerializer, AdminSendSupportMessageSerializer
 from rest_framework import permissions, status
 from .pagination import ProductStorePagination, OrderListPagination
 from rest_framework.authtoken.models import Token
@@ -331,6 +331,9 @@ class SupportRequests(APIView):
     def get(self, request, *args, **kwargs):
         query = SupportChannel.objects.filter(active=True)
 
+        if not query:
+            return Response({"detail": "There are no active support channels"}, status=status.HTTP_404_NOT_FOUND)
+
         serializer = SupportRequestsSerializer(query, many=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -341,7 +344,7 @@ class SupportRequests(APIView):
         if not channel:
             return Response({"detail": "Channel not found"}, status=status.HTTP_404_NOT_FOUND)
         
-        serializer = SendSupportMessageSerializer(data=request.data, context={'user': request.user, 'channel': channel})
+        serializer = AdminSendSupportMessageSerializer(data=request.data, context={'user': request.user, 'channel': channel})
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
@@ -406,7 +409,7 @@ class SendSupportMessage(APIView):
         channel = get_support_channel(request.user)
 
         if not channel:
-            return Response({"detail": "You do not have an actice support channel"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "You do not have an active support channel"}, status=status.HTTP_400_BAD_REQUEST)
         
         serializer = SendSupportMessageSerializer(data=request.data, context={"channel":channel, "user":request.user})
         serializer.is_valid(raise_exception=True)
