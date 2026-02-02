@@ -1,9 +1,9 @@
 from django.shortcuts import get_object_or_404
 from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView
 from .models import Product, Cart, Client, Order, DiscountCoupon, SupportChannel
-from .serializers import ProductSerializer, ContinueToPaymentResponseSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer, AddToCartSerializer, DeleteCartItemSerializer, PayerSerializer, CouponSerializer, CartItemResponseSerializer, CartResponseSerializer, PreferenceResponseSerializer, LoginSerializer, OrderUserListSerializer, SupportChannelSerializer, SendSupportMessageSerializer, SupportRequestsSerializer, AdminSendSupportMessageSerializer
+from .serializers import ProductSerializer, ContinueToPaymentResponseSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer, AddToCartSerializer, DeleteCartItemSerializer, PayerSerializer, CouponSerializer, CartItemResponseSerializer, CartResponseSerializer, PreferenceResponseSerializer, LoginSerializer, OrderUserListSerializer, SupportChannelSerializer, SendSupportMessageSerializer, SupportRequestsSerializer, AdminSendSupportMessageSerializer, OrderListSerializer
 from rest_framework import permissions, status
-from .pagination import ProductStorePagination, OrderListPagination
+from .pagination import ProductStorePagination, OrderListPagination, SupportRequestsPagination, AdminOrderListPagination
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -21,7 +21,7 @@ from .coupon import add_coupon_to_cart, get_discount
 
 class ProductsStoreView(ListAPIView):
     pagination_class = ProductStorePagination
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
     serializer_class = ProductSerializer    
     queryset = Product.objects.all()
 
@@ -30,13 +30,13 @@ class ProductsStoreView(ListAPIView):
         return queryset
     
 class ProductDetail(RetrieveAPIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
     serializer_class = ProductSerializer
     queryset = Product.objects.all()
     lookup_field = 'slug'
 
 class CartView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
         
     def post(self, request, pk, *args, **kwargs,):
         cart, _= Cart.get_cart(user=request.user)
@@ -239,6 +239,7 @@ class WebhookView(APIView):
 
 class OrderView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = OrderListPagination
 
     def post(self, request, *args, **kwargs):
         payment, cart = get_pending_payment(request.user)
@@ -265,12 +266,16 @@ class OrderView(APIView):
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
-    def get(self, request, *args, **kwargs): # ADICIONAR PAGINAÇÃO AQUI
+    def get(self, request, *args, **kwargs):
         query = Order.objects.filter(user=request.user)
-        serializer = OrderUserListSerializer(query, many=True)
 
-        return Response(serializer.data)
-    
+        pagination = self.pagination_class()
+        page = pagination.paginate_queryset(query, request)
+
+        serializer = OrderUserListSerializer(page, many=True)
+
+        return pagination.get_paginated_response(serializer.data)
+
 #==AUTHENTICATION==
 
 class RegisterClient(CreateAPIView):
@@ -315,6 +320,7 @@ class CouponPanel(ModelViewSet):
 
 class UpdateOrderStatus(APIView):
     permission_classes = [permissions.IsAdminUser]
+    pagination_class = AdminOrderListPagination
 
     def patch(self, request, pk, *args, **kwargs):
         order = get_object_or_404(Order, pk=pk)
@@ -325,19 +331,37 @@ class UpdateOrderStatus(APIView):
         order = serializer.save()
         return Response({"detail": f"The order status has been updated to {order.status}"}, status=status.HTTP_200_OK)
     
+    def get(self, request, *args, **kwargs):
+        query = Order.objects.exclude(status = 'delivered')
+
+        if not query.exists():
+            return Response({"detail": "There are no pending orders"}, status=status.HTTP_404_NOT_FOUND)
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(query, request)
+
+        serializer = OrderListSerializer(page, many=True)
+
+        return paginator.get_paginated_response(serializer.data)
 class SupportRequests(APIView):
     permission_classes = [permissions.IsAdminUser]
+    pagination_class = SupportRequestsPagination
 
     def get(self, request, *args, **kwargs):
         query = SupportChannel.objects.filter(active=True)
 
-        if not query:
+        if not query.exists():
             return Response({"detail": "There are no active support channels"}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = SupportRequestsSerializer(query, many=True)
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(query, request)
 
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    
+        serializer = SupportRequestsSerializer(page, many=True)
+
+        return  paginator.get_paginated_response(serializer.data)
+class ReplySupportMessage(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
     def post(self, request, pk, *args, **kwargws):
         channel = get_support_channel_by_id(pk)
 
