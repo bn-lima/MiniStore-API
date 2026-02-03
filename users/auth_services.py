@@ -36,7 +36,7 @@ def validate_reset_token(token_str):
     return token
 
 def send_reset_email(token, user):
-    link = f"http://127.0.0.1:8000/user/password_reset/?token={token.token}"
+    link = f"http://127.0.0.1:8000/user/reset/?token={token.token}"
     
     email_message = EmailMessage(
         subject = "Password reset request",

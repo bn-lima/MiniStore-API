@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'store',
     'rest_framework.authtoken',
+    'users'
 ]
 
 MIDDLEWARE = [
@@ -123,8 +124,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 #AbstractUser
-AUTH_USER_MODEL = 'store.Client'
-USERNAME_FIELD = 'email'
+AUTH_USER_MODEL = 'users.Client'
 
 #Rest Framework
 

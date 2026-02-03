@@ -1,15 +1,13 @@
 from django.shortcuts import get_object_or_404
-from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView
-from .models import Product, Cart, Client, Order, DiscountCoupon, SupportChannel
-from .serializers import ProductSerializer, ContinueToPaymentResponseSerializer, ClientSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, UserOrdersListSerializer, ChangePasswordSerializer, PasswordResetRequestSerializer, PasswordResetSerializer, AddToCartSerializer, DeleteCartItemSerializer, PayerSerializer, CouponSerializer, CartItemResponseSerializer, CartResponseSerializer, PreferenceResponseSerializer, LoginSerializer, OrderUserListSerializer, SupportChannelSerializer, SendSupportMessageSerializer, SupportRequestsSerializer, AdminSendSupportMessageSerializer, OrderListSerializer
+from rest_framework.generics import ListAPIView, RetrieveAPIView
+from .models import Product, Cart, Order, DiscountCoupon, SupportChannel
+from .serializers import ProductSerializer, ContinueToPaymentResponseSerializer, CartItemQuantitySerializer, OrderSerializer, CouponCodeSerializer, UpdateStatusSerializer, AddToCartSerializer, DeleteCartItemSerializer, PayerSerializer, CouponSerializer, CartResponseSerializer, PreferenceResponseSerializer, OrderUserListSerializer, SupportChannelSerializer, SendSupportMessageSerializer, SupportRequestsSerializer, AdminSendSupportMessageSerializer, OrderListSerializer
 from rest_framework import permissions, status
 from .pagination import ProductStorePagination, OrderListPagination, SupportRequestsPagination, AdminOrderListPagination
-from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from .services import get_and_validate_product, decrease_reserved_stock, reduce_cart_item, check_insufficient_stock, is_item_inactive, reserve_and_check_product_stock, get_support_channel, get_support_channel_by_id
-from .auth import validate_reset_token, send_reset_email
 from .cart import get_cart_by_id, get_cart_item, proceed_to_payment
 from .payment import mp_create_preference, create_payment, validate_signature, get_payment_data, finalize_preference, has_active_preference, get_pending_payment
 from .utils import get_webhook_headers
@@ -276,36 +274,6 @@ class OrderView(APIView):
 
         return pagination.get_paginated_response(serializer.data)
 
-#==AUTHENTICATION==
-
-class RegisterClient(CreateAPIView):
-    permission_classes = [permissions.AllowAny]
-    serializer_class = ClientSerializer
-    queryset = Client.objects.all()
-
-class LogoutClient(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def delete(self, request, *args, **kwargs):
-        Token.objects.filter(user=request.user).delete()
-        return Response({'detail': 'Logout was successful'}, status=status.HTTP_204_NO_CONTENT)
-    
-
-class LoginClient(APIView):
-    permission_classes = [permissions.AllowAny]
-
-    def post(self, request, *args, **kwargs):
-
-        serializer = LoginSerializer(data=request.data)
-
-        serializer.is_valid(raise_exception=True)
-
-        token = serializer.validated_data.get('token')
-
-        if token:
-            return Response({'Token': token.key})
-        return Response({'detail': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
-    
 #CONTROL-PANEL
 
 class ProductPanel(ModelViewSet):
@@ -375,45 +343,6 @@ class ReplySupportMessage(APIView):
         response_serializer = SupportChannelSerializer(channel)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
 
-#AUTH-PASSWORD MANAGEMENT
-
-class ChangePasswordClient(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def patch(self, request, *args, **kwargs):
-        user = request.user
-        serializer = ChangePasswordSerializer(data=request.data, context = {'user': user})
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response({'detail': 'Your password was changed successfully'}, status=status.HTTP_200_OK)
-
-class PasswordResetRequestClient(APIView):
-    permission_classes = [permissions.AllowAny] 
-
-    def post(self, request, *args, **kwargs):
-        serializer = PasswordResetRequestSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)   
-        token, user = serializer.save()
-
-        send_reset_email(token, user)
-        return Response({'detail':'An email has been sent to you with a password reset link'}, status=status.HTTP_200_OK)
-    
-
-class PasswordResetClient(APIView):
-    permission_classes = [permissions.AllowAny]
-
-    def post(self, request, *args, **kwargs):
-        token_str = request.query_params.get('token')
-
-        token = validate_reset_token(token_str)
-
-        if not token:
-            return Response({'error': 'Invalid or missing token'},status=status.HTTP_400_BAD_REQUEST)
-        
-        serializer = PasswordResetSerializer(data=request.data, context={'token':token})
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response({'detail': 'Your password has been changed successfully'},status=status.HTTP_200_OK)
 
 # SUPPORT
 

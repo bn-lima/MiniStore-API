@@ -1,16 +1,11 @@
 from django.contrib import admin
-from .models import Client, DiscountCoupon, Product, Cart, CartItem, Order, MPPreference, MpPayment, SupportChannel, SupportMessage
+from .models import DiscountCoupon, Product, Cart, CartItem, Order, MPPreference, MpPayment, SupportChannel, SupportMessage
 
 @admin.register(DiscountCoupon)
 class DiscountCupomAdmin(admin.ModelAdmin):
     list_display = ('cupom','active','discount_percent','min_purchase')
     search_fields = ('cupom','active','discount_percent','min_purchase')
     exclude = ('used_by',)
-
-@admin.register(Client)
-class ClientAdmin(admin.ModelAdmin):
-    list_display = ('username','email','cpf','phone',)
-    search_fields = ('username','cpf','phone','email')
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):

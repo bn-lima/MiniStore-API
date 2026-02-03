@@ -1,7 +1,6 @@
 from django.test import TestCase
 from django.urls import reverse
-from .models import Client, Product
-from rest_framework.authtoken.models import Token
+from .models import Product
 from unittest.mock import patch
 
 def fake_get_payment_data(data_id):

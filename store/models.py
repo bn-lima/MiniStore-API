@@ -1,13 +1,10 @@
 from django.db import models
-from django.contrib.auth.models import AbstractUser
 from django.utils.text import slugify
 from django.utils import timezone
 from django.db.models import Sum
 import uuid
-from datetime import timedelta
 from store.constants import ProductCategory, OrderStatus
-from store.validators import NUMERIC_VALIDATOR
-
+from users.models import Client
 class DiscountCoupon(models.Model):
 
     cupom = models.CharField(max_length=10, blank=False)
@@ -15,7 +12,7 @@ class DiscountCoupon(models.Model):
 
     min_purchase = models.DecimalField(max_digits=8,decimal_places=2, default=0)
     active = models.BooleanField(default=True)
-    used_by = models.ManyToManyField('Client', blank=True, related_name='used_coupons')
+    used_by = models.ManyToManyField(Client, blank=True, related_name='used_coupons')
 
     def is_active(self):
         return self.active
@@ -47,7 +44,7 @@ class Product(models.Model):
     active = models.BooleanField(default=False)
     picture = models.ImageField(upload_to="products/", blank=False, null=False, default='default.jpg', )    
 
-    slug = models.SlugField(max_length=255, unique=True)
+    slug = models.SlugField(max_length=255, unique=True, blank=True)
 
     def calculate_discount(self, cupom_code):
         try:
@@ -65,16 +62,6 @@ class Product(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.price}"
-        
-
-
-
-class Client(AbstractUser):
-    cpf = models.CharField(max_length=11, validators=[NUMERIC_VALIDATOR], unique=True)
-    location = models.CharField(max_length=200)
-    phone = models.CharField(max_length=11, validators=[NUMERIC_VALIDATOR])
-    email = models.EmailField(unique=True)
-
 
 class Cart(models.Model):
 
@@ -167,24 +154,6 @@ class MpPayment(models.Model):
     payment_method = models.CharField(max_length=200, null=True, blank=True)
 
     finalized = models.BooleanField(default=False)
-
-def token_expiration():
-    return timezone.now() + timedelta(hours=1)
-
-
-class PasswordResetToken(models.Model):
-    user = models.ForeignKey(Client, blank=False, on_delete=models.CASCADE)
-    token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    expires_at = models.DateTimeField(default=token_expiration)
-    used = models.BooleanField(default=False)
-
-    def is_expired(self):
-        return timezone.now() > self.expires_at
-
-    def mark_as_used(self):
-        self.used = True
-        return self.used
 
 class SupportMessage(models.Model):
     user = models.ForeignKey(Client, on_delete=models.CASCADE, blank=False, null=False)
