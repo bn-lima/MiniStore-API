@@ -9,7 +9,7 @@ from store.serializers import CouponCodeSerializer
 from .payment_services import mp_create_preference, has_active_preference, proceed_to_payment, validate_signature, get_payment_data, create_payment, finalize_preference
 from store.coupon import add_coupon_to_cart
 from .serializers import ContinueToPaymentResponseSerializer, PreferenceResponseSerializer, PayerSerializer
-from store.utils import get_webhook_headers
+from .utils import get_webhook_headers
 
 
 #==PAYMENT==
