@@ -21,7 +21,3 @@ def get_cart_item(cart, product):
         return None
 
     return cart_item
-
-def proceed_to_payment(cart):
-    cart.passed_continue_to_payment = True
-    cart.save()

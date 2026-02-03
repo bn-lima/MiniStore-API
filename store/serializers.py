@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Product, Cart, CartItem, Order, DiscountCoupon, MPPreference, SupportChannel, SupportMessage
+from .models import Product, Cart, CartItem, Order, DiscountCoupon, SupportChannel, SupportMessage
 from .services import verify_order_status, calculate_total_quantity, is_channel_in_progress
 from .coupon import validate_and_apply_discount, mark_coupon_as_used
 from .cart import get_cart_item
@@ -105,16 +105,6 @@ class UpdateStatusSerializer(serializers.ModelSerializer):
         verify_order_status(order.status, order.user.email, order)
         
         return order
-    
-class PayerSerializer(serializers.Serializer):
-    client_full_name = serializers.CharField(max_length=200, required=True)
-    client_cpf = serializers.CharField(max_length=11, required=True)
-    client_email = serializers.EmailField(required=True)
-
-    def validate_client_cpf(self, value):
-        if not value.isdigit():
-            raise serializers.ValidationError("The cpf must only contain digits")
-        return value
 
 class CouponSerializer(serializers.ModelSerializer):
     class Meta:
@@ -241,17 +231,6 @@ class CouponResponseSerializer(serializers.ModelSerializer):
     
     def get_discount_percent(self, obj):
         return int(obj.discount_percent)
-
-class ContinueToPaymentResponseSerializer(serializers.Serializer):
-    coupon = CouponResponseSerializer()
-    cart = CartResponseSerializer()
-
-class PreferenceResponseSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = MPPreference
-        fields = ('init_point', 'preference_id', 'expired')
-
-
 class OrderUserListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order

@@ -1,5 +1,5 @@
-from .coupon import get_discount, calculate_total_price
-from .services import get_dict_items
+from store.coupon import calculate_total_price
+from store.services import get_dict_items
 from .models import MPPreference, MpPayment
 import uuid
 import hmac
@@ -138,3 +138,7 @@ def validate_signature(data_id, x_request_id, signature_header):
     if valid_signature:
         return True
     return False
+
+def proceed_to_payment(cart):
+    cart.passed_continue_to_payment = True
+    cart.save()

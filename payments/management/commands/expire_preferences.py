@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand
-from store.models import MPPreference, Cart
+from store.models import Cart
+from payments.models import MPPreference
 from django.db import transaction
 from store.services import return_product_stock
 
