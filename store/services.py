@@ -1,4 +1,4 @@
-from .models import Product, SupportChannel
+from .models import Product
 from .coupon import calculate_item_discount
 from .email_service import EmailService
 from .cart import get_cart_item
@@ -138,28 +138,3 @@ def return_product_stock(cart):
 
         item.save()
         product.save()
-
-def get_support_channel(user):
-    try:
-        channel = SupportChannel.objects.get(user=user, active=True)
-    except SupportChannel.DoesNotExist:
-        return None
-    return channel
-
-def get_support_channel_by_id(id):
-    try:
-        channel = SupportChannel.objects.get(id=id, active=True)
-    except SupportChannel.DoesNotExist:
-        return None
-    return channel
-
-def is_channel_in_progress(channel, user):
-    messages = channel.messages.filter(user=user)
-
-    if not messages.exists():
-        return False
-    
-    if messages.count() == 1:
-        return True
-    
-    return False

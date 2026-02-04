@@ -8,6 +8,8 @@ urlpatterns = [
     path('', include('store.urls')),
     path('user/', include('users.urls')),
     path('payment/', include('payments.urls')),
+    path('control/panel/', include('control_panel.urls')),
+    path('support/', include('support.urls')),
 ]
 
 if settings.DEBUG:

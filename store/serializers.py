@@ -1,6 +1,6 @@
 from rest_framework import serializers
-from .models import Product, Cart, CartItem, Order, DiscountCoupon, SupportChannel, SupportMessage
-from .services import verify_order_status, calculate_total_quantity, is_channel_in_progress
+from .models import Product, Cart, CartItem, Order, DiscountCoupon
+from .services import verify_order_status, calculate_total_quantity
 from .coupon import validate_and_apply_discount, mark_coupon_as_used
 from .cart import get_cart_item
 from store.constants import OrderStatus
@@ -16,10 +16,6 @@ class CouponCodeSerializer(serializers.Serializer):
         allow_blank=True,
         allow_null=True
     )
-
-
-
-
 class CartItemQuantitySerializer(serializers.Serializer):
     product_quantity = serializers.IntegerField(default=1)
 
@@ -106,10 +102,6 @@ class UpdateStatusSerializer(serializers.ModelSerializer):
         
         return order
 
-class CouponSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = DiscountCoupon
-        fields = '__all__'
 class AddToCartSerializer(serializers.Serializer):
 
     def validate(self, data):
@@ -235,72 +227,6 @@ class OrderUserListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         exclude  = ('user',)
-
-class ShowSupportMessagesSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = SupportMessage
-        exclude = ('channel',)
-
-class SupportChannelSerializer(serializers.ModelSerializer):
-    messages = ShowSupportMessagesSerializer(many=True, read_only=True)
-    class Meta:
-        model = SupportChannel
-        fields = ('messages',)
-
-class SendSupportMessageSerializer(serializers.ModelSerializer):
-    message = serializers.CharField(max_length=5000)
-    
-    class Meta:
-        model = SupportMessage
-        exclude = ('channel', 'user')
-
-    def save(self, **kwargs):
-        channel = self.context.get('channel')
-        user = self.context.get('user')
-
-        return SupportMessage.objects.create(
-            channel=channel,
-            user=user,
-            message=self.validated_data.get('message')
-        )
-    
-class SupportRequestsSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = SupportChannel
-        fields = '__all__'
-
-
-class AdminSendSupportMessageSerializer(serializers.ModelSerializer):
-    message = serializers.CharField(max_length=5000)
-    desactive_chat = serializers.BooleanField(default=False)
-    
-    class Meta:
-        model = SupportMessage
-        exclude = ('channel', 'user')
-
-    def save(self, **kwargs):
-        channel = self.context.get('channel')
-        user = self.context.get('user')
-
-        if self.validated_data.get('desactive_chat'):
-            channel.active = False
-            channel.in_progress = False
-            channel.save()
-
-            self.validated_data['message'] = 'This chat has been closed. You can open another one at any moment.'
-
-        message = SupportMessage.objects.create(
-            channel=channel,
-            user=user,
-            message=self.validated_data.get('message')
-        )
-
-        if is_channel_in_progress(channel, user) and channel.active:
-            channel.in_progress = True
-            channel.save()
-
-        return message
     
 class OrderListSerializer(serializers.ModelSerializer):
     class Meta:

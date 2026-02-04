@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import DiscountCoupon, Product, Cart, CartItem, Order, SupportChannel, SupportMessage
+from .models import DiscountCoupon, Product, Cart, CartItem, Order
 
 @admin.register(DiscountCoupon)
 class DiscountCupomAdmin(admin.ModelAdmin):
@@ -32,15 +32,3 @@ class CartAdmin(admin.ModelAdmin):
 class OrderAdmin(admin.ModelAdmin):
     list_display = ('user','status','order_id','created_at','updated_at','payment_method','discount_applied')
     search_fields = ('user','status','order_id','created_at','updated_at','payment_method','discount_applied')
-
-class SupportMessageInline(admin.TabularInline):
-     model = SupportMessage
-     extra = 1
-     fields = ('message', 'date', 'user')
-     readonly_fields = ('date', 'user')
-
-@admin.register(SupportChannel)
-class SupportChannelAdmin(admin.ModelAdmin):
-     list_display = ('active', 'user', 'in_progress')
-     search_fields = ('active', 'user', 'in_progress')
-     inlines = [SupportMessageInline]

@@ -1,13 +1,11 @@
-from django.shortcuts import get_object_or_404
 from rest_framework.generics import ListAPIView, RetrieveAPIView
-from .models import Product, Cart, Order, DiscountCoupon, SupportChannel
-from .serializers import ProductSerializer, CartItemQuantitySerializer, OrderSerializer, UpdateStatusSerializer, AddToCartSerializer, DeleteCartItemSerializer, CouponSerializer, CartResponseSerializer, OrderUserListSerializer, SupportChannelSerializer, SendSupportMessageSerializer, SupportRequestsSerializer, AdminSendSupportMessageSerializer, OrderListSerializer
+from .models import Product, Cart, Order
+from .serializers import ProductSerializer, CartItemQuantitySerializer, OrderSerializer, AddToCartSerializer, DeleteCartItemSerializer, CartResponseSerializer, OrderUserListSerializer
 from rest_framework import permissions, status
-from .pagination import ProductStorePagination, OrderListPagination, SupportRequestsPagination, AdminOrderListPagination
+from .pagination import ProductStorePagination, OrderListPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.viewsets import ModelViewSet
-from .services import get_and_validate_product, get_support_channel, get_support_channel_by_id
+from .services import get_and_validate_product
 from .cart import get_cart_item
 from payments.payment_services import get_pending_payment
 
@@ -124,99 +122,3 @@ class OrderView(APIView):
 
         return pagination.get_paginated_response(serializer.data)
 
-#CONTROL-PANEL
-
-class ProductPanel(ModelViewSet):
-    permission_classes = [permissions.IsAdminUser]
-    serializer_class = ProductSerializer
-    queryset = Product.objects.all()
-
-class CouponPanel(ModelViewSet):
-    permission_classes = [permissions.IsAdminUser]
-    serializer_class = CouponSerializer
-    queryset = DiscountCoupon.objects.all()
-
-class UpdateOrderStatus(APIView):
-    permission_classes = [permissions.IsAdminUser]
-    pagination_class = AdminOrderListPagination
-
-    def patch(self, request, pk, *args, **kwargs):
-        order = get_object_or_404(Order, pk=pk)
-
-        serializer = UpdateStatusSerializer(order, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-
-        order = serializer.save()
-        return Response({"detail": f"The order status has been updated to {order.status}"}, status=status.HTTP_200_OK)
-    
-    def get(self, request, *args, **kwargs):
-        query = Order.objects.exclude(status = 'delivered')
-
-        if not query.exists():
-            return Response({"detail": "There are no pending orders"}, status=status.HTTP_404_NOT_FOUND)
-
-        paginator = self.pagination_class()
-        page = paginator.paginate_queryset(query, request)
-
-        serializer = OrderListSerializer(page, many=True)
-
-        return paginator.get_paginated_response(serializer.data)
-class SupportRequests(APIView):
-    permission_classes = [permissions.IsAdminUser]
-    pagination_class = SupportRequestsPagination
-
-    def get(self, request, *args, **kwargs):
-        query = SupportChannel.objects.filter(active=True)
-
-        if not query.exists():
-            return Response({"detail": "There are no active support channels"}, status=status.HTTP_404_NOT_FOUND)
-
-        paginator = self.pagination_class()
-        page = paginator.paginate_queryset(query, request)
-
-        serializer = SupportRequestsSerializer(page, many=True)
-
-        return  paginator.get_paginated_response(serializer.data)
-class ReplySupportMessage(APIView):
-    permission_classes = [permissions.IsAdminUser]
-
-    def post(self, request, pk, *args, **kwargws):
-        channel = get_support_channel_by_id(pk)
-
-        if not channel:
-            return Response({"detail": "Channel not found"}, status=status.HTTP_404_NOT_FOUND)
-        
-        serializer = AdminSendSupportMessageSerializer(data=request.data, context={'user': request.user, 'channel': channel})
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-
-        response_serializer = SupportChannelSerializer(channel)
-        return Response(response_serializer.data, status=status.HTTP_200_OK)
-
-
-# SUPPORT
-
-class RequestSupport(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request, *args, **kwargs):
-        channel, _ = SupportChannel.objects.get_or_create(active=True, user=request.user)
-        serializer = SupportChannelSerializer(channel)
-        
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    
-class SendSupportMessage(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request, *args, **kwargs):
-        channel = get_support_channel(request.user)
-
-        if not channel:
-            return Response({"detail": "You do not have an active support channel"}, status=status.HTTP_400_BAD_REQUEST)
-        
-        serializer = SendSupportMessageSerializer(data=request.data, context={"channel":channel, "user":request.user})
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-
-        response_serializer = SupportChannelSerializer(channel)
-        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
