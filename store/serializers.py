@@ -3,7 +3,6 @@ from .models import Product, Cart, CartItem, Order, DiscountCoupon
 from .services import verify_order_status, calculate_total_quantity
 from .coupon import validate_and_apply_discount, mark_coupon_as_used
 from .cart import get_cart_item
-from store.constants import OrderStatus
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
@@ -85,22 +84,6 @@ class UserOrdersListSerializer(serializers.ModelSerializer):
         if obj.discount_applied:
             return f"{obj.discount_applied.discount_percent} %"
         return None
-
-class UpdateStatusSerializer(serializers.ModelSerializer):
-    status = serializers.ChoiceField(choices=OrderStatus.choices())
-
-    class Meta:
-        model = Order
-        fields = ('status',)
-    
-    def save(self, **kwargs):
-        order = self.instance
-        order.status = self.validated_data.get('status')
-        order.save()
-
-        verify_order_status(order.status, order.user.email, order)
-        
-        return order
 
 class AddToCartSerializer(serializers.Serializer):
 
@@ -227,8 +210,3 @@ class OrderUserListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         exclude  = ('user',)
-    
-class OrderListSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Order
-        fields = '__all__'

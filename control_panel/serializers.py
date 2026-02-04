@@ -1,7 +1,9 @@
 from rest_framework import serializers
 from support.models import SupportChannel, SupportMessage
 from .services import is_channel_in_progress
-from store.models import DiscountCoupon
+from store.models import DiscountCoupon, Order
+from store.services import verify_order_status
+from store.constants import OrderStatus
 
 class SupportRequestsSerializer(serializers.ModelSerializer):
 
@@ -43,4 +45,25 @@ class AdminSendSupportMessageSerializer(serializers.ModelSerializer):
 class CouponSerializer(serializers.ModelSerializer):
     class Meta:
         model = DiscountCoupon
+        fields = '__all__'
+
+class UpdateStatusSerializer(serializers.ModelSerializer):
+    status = serializers.ChoiceField(choices=OrderStatus.choices())
+
+    class Meta:
+        model = Order
+        fields = ('status',)
+    
+    def save(self, **kwargs):
+        order = self.instance
+        order.status = self.validated_data.get('status')
+        order.save()
+
+        verify_order_status(order.status, order.user.email, order)
+        
+        return order
+    
+class OrderListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
         fields = '__all__'

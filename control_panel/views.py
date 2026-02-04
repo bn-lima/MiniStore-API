@@ -3,11 +3,11 @@ from rest_framework.views import APIView
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 from store.models import Product, DiscountCoupon, Order
-from store.serializers import ProductSerializer, OrderListSerializer, UpdateStatusSerializer
+from store.serializers import ProductSerializer
 from rest_framework.viewsets import ModelViewSet
 from .pagination import AdminOrderListPagination, SupportRequestsPagination
 from support.models import SupportChannel
-from .serializers import SupportRequestsSerializer, AdminSendSupportMessageSerializer, CouponSerializer
+from .serializers import SupportRequestsSerializer, AdminSendSupportMessageSerializer, CouponSerializer, UpdateStatusSerializer, OrderListSerializer
 from .services import get_support_channel_by_id
 from support.serializers import  SupportChannelSerializer
 
@@ -27,10 +27,12 @@ class CouponPanel(ModelViewSet):
 
 class UpdateOrderStatus(APIView):
     permission_classes = [permissions.IsAdminUser]
-    pagination_class = AdminOrderListPagination
 
     def patch(self, request, pk, *args, **kwargs):
         order = get_object_or_404(Order, pk=pk)
+
+        if order.status == 'Delivered':
+            return Response({"detail": "The order has already been delivered and cannot be updated"}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = UpdateStatusSerializer(order, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -38,8 +40,13 @@ class UpdateOrderStatus(APIView):
         order = serializer.save()
         return Response({"detail": f"The order status has been updated to {order.status}"}, status=status.HTTP_200_OK)
     
-    def get(self, request, *args, **kwargs): #VERIFICAR SE É PRECISO SEPARAR EM OUTRA VIEW =========================================================================
-        query = Order.objects.exclude(status = 'delivered')
+
+class PendingOrdersList(APIView):
+    permission_classes = [permissions.IsAdminUser]
+    pagination_class = AdminOrderListPagination
+
+    def get(self, request, *args, **kwargs):
+        query = Order.objects.exclude(status = 'Delivered')
 
         if not query.exists():
             return Response({"detail": "There are no pending orders"}, status=status.HTTP_404_NOT_FOUND)
